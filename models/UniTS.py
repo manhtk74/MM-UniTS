@@ -32,7 +32,7 @@ class CrossAttention(nn.Module):
         assert dim % num_heads == 0, 'dim should be divisible by num_heads'
         self.num_heads = num_heads
         self.head_dim = dim // num_heads
-        self.scale = self.head_dim ** -0.5
+        self.scale = self.head_dim ** -0.5 # 1 / sqrt(d_k)
 
         self.q = nn.Linear(dim, dim, bias=qkv_bias)
         self.kv = nn.Linear(dim, dim * 2, bias=qkv_bias)
@@ -41,6 +41,8 @@ class CrossAttention(nn.Module):
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
+
+        # template: learnable query ứng với từng variable
         if var_num is not None:
             self.template = nn.Parameter(
                 torch.zeros(var_num, dim), requires_grad=True)
@@ -48,8 +50,15 @@ class CrossAttention(nn.Module):
         self.var_num = var_num
 
     def forward(self, x, query=None):
+
+        # B: batch, N: seq_len, C: hid dims
         B, N, C = x.shape
         if query is not None:
+            # query: [B, N, dim]
+            # self.q(query): # [B, N, dim]
+            # .reshape (multi head): # [B, N, n_heads, h_dims]
+            # .permute (to do matrix mul): # [B, n_heads, N, h_dims]
+
             q = self.q(query).reshape(
                 B, query.shape[1], self.num_heads, self.head_dim).permute(0, 2, 1, 3)
             q = self.q_norm(q)
@@ -58,8 +67,10 @@ class CrossAttention(nn.Module):
             q = self.q(self.template).reshape(1, self.var_num,
                                               self.num_heads, self.head_dim).permute(0, 2, 1, 3)
             q = self.q_norm(q)
-            q = q.repeat(B, 1, 1, 1)
+            q = q.repeat(B, 1, 1, 1) # repeat template cho batch
             var_num = self.var_num
+
+        # self.kv(x): [B, N, dim*2]
         kv = self.kv(x).reshape(B, N, 2, self.num_heads,
                                 self.head_dim).permute(2, 0, 3, 1, 4)
         k, v = kv.unbind(0)
@@ -79,9 +90,12 @@ class CrossAttention(nn.Module):
 class DynamicLinear(nn.Module):
     """
     A dynamic linear layer that can interpolate the weight size to support any given input and output feature dimension.
+
+    Aim to capture dense relationship among tokens of various seq length
     """
 
     def __init__(self, in_features=None, out_features=None, fixed_in=0, bias=True):
+        # Fixed_in: prompt_token len
         super(DynamicLinear, self).__init__()
         assert fixed_in < in_features, "fixed_in < in_features is required !!!"
         self.in_features = in_features
@@ -170,6 +184,7 @@ class DynamicLinearMlp(nn.Module):
         return torch.cat((x1, x2), dim=-2)
 
     def forward(self, x, prefix_seq_len, dim=2):
+        # B: batch, var: số variable, l: token_len + prompt_len, c: hidden_dim
         n, var, l, c = x.shape
         x = x.view(-1, l, c)
         x = x.transpose(-1, -2)
@@ -274,13 +289,15 @@ class VarAttention(nn.Module):
         self.proj_drop = nn.Dropout(proj_drop)
 
     def forward(self, x):
+        # B: batch, N: variable, P: Seq len, C: dim
         B, N, P, C = x.shape
 
         qkv = self.qkv(x).reshape(B, N, P, 3, self.num_heads,
-                                  self.head_dim).permute(3, 0, 2, 4, 1, 5)
+                                 self.head_dim).permute(3, 0, 2, 4, 1, 5)
         q, k, v = qkv.unbind(0)
+        # q, k, v: [B, P, n_heads, N, h_dims]
         q, k = self.q_norm(q), self.k_norm(k)
-
+ 
         q = q.mean(dim=1, keepdim=False)
         k = k.mean(dim=1, keepdim=False)
         v = v.permute(0, 2, 3, 4, 1).reshape(B, self.num_heads, N, -1)
@@ -342,6 +359,7 @@ class SeqAttBlock(nn.Module):
     def forward(self, x, attn_mask):
         x_input = x
         x = self.norm1(x)
+        # x: [B, n_vars, seq_len, C]
         n_vars, n_seqs = x.shape[1], x.shape[2]
         x = torch.reshape(
             x, (-1, x.shape[-2], x.shape[-1]))
@@ -482,10 +500,14 @@ class PatchEmbedding(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
+        # x: [B, n_vars, seq_len]
         n_vars = x.shape[1]
         x = x.unfold(dimension=-1, size=self.patch_len, step=self.stride)
+        # x: [B, n_vars, n_patches, patch_len]
         x = torch.reshape(x, (x.shape[0] * x.shape[1], x.shape[2], x.shape[3]))
+        # x: [B * n_vars, n_patches, patch_len]
         x = self.value_embedding(x)
+        # x: [B*n_vars, n_patches, d_model]
         return self.dropout(x), n_vars
 
 
@@ -504,23 +526,28 @@ class CLSHead(nn.Module):
     def forward(self, x, category_token=None, return_feature=False):
         x = self.proj_in(x)
         B, V, L, C = x.shape
+        # B: batch, V: variable, L: seq_len, C: dims
         x = x.view(-1, L, C)
-        cls_token = x[:, -1:]
-        cls_token = self.cross_att(x, query=cls_token)
+        cls_token = x[:, -1:] # take last token
+        cls_token = self.cross_att(x, query=cls_token) # Query through all batch, variable
         cls_token = cls_token.reshape(B, V, -1, C)
 
         cls_token = self.mlp(cls_token)
         if return_feature:
             return cls_token
+        
         m = category_token.shape[2]
         cls_token = cls_token.expand(B, V, m, C)
+        # category_token: [1, V, num_class, C]
+        # cls_token: [B, V, num_class, C]
+        # => Dot product between cls_token and category_token
         distance = torch.einsum('nvkc,nvmc->nvm', cls_token, category_token)
-
         distance = distance.mean(dim=1)
         return distance
 
 
 class ForecastHead(nn.Module):
+    """Convert hidden token into forecast seq"""
     def __init__(self, d_model, patch_len, stride, pad, head_dropout=0, prefix_token_length=None):
         super().__init__()
         d_mid = d_model
@@ -539,23 +566,37 @@ class ForecastHead(nn.Module):
             in_features=128, out_features=128, fixed_in=prefix_token_length)
 
     def forward(self, x_full, pred_len, token_len):
+        # x_full: [B, n_vars, L_full, d_model]
+        # where L_full = prefix prompt tokens + input patch tokens + prediction tokens
+
         x_full = self.proj_in(x_full)
-        x_pred = x_full[:, :, -token_len:]
+        # x_full: [B, n_vars, L_full, d_model]
+        x_pred = x_full[:, :, -token_len:] # take last token_len token (forecast token)
+        # x_pred: [B, n_vars, token_len, d_model]
         x = x_full.transpose(-1, -2)
-        x = self.pos_proj(x, token_len)
+        # x: [B, n_vars, d_model, L_full]
+        x = self.pos_proj(x, token_len) # Capture dense relation in seq token 
+        # x: [B, n_vars, d_model, token_len]
         x = x.transpose(-1, -2)
+        # x: [B, n_vars, token_len, d_model]
         x = x + x_pred
         x = self.mlp(x)
         x = self.proj_out(x)
+        # x: [B, n_vars, token_len, patch_len]
 
         bs, n_vars = x.shape[0], x.shape[1]
         x = x.reshape(-1, x.shape[-2], x.shape[-1])
+        # x: [B*n_vars, token_len, patch_len]
         x = x.permute(0, 2, 1)
+        # x: [B*n_vars, patch_len, token_len]
         x = torch.nn.functional.fold(x, output_size=(
             pred_len, 1), kernel_size=(self.patch_len, 1), stride=(self.stride, 1))
+        # x: [B * n_vars, 1, pred_len, 1]
         x = x.squeeze(dim=-1)
+        # x: [B * n_vars, 1, pred_len]
         x = x.reshape(bs, n_vars, -1)
         x = x.permute(0, 2, 1)
+        # x: [B, pred_len, n_vars]
         return x
 
 
@@ -572,31 +613,34 @@ class Model(nn.Module):
             self.min_mask_ratio = args.min_mask_ratio
             self.max_mask_ratio = args.max_mask_ratio
 
-        # Tokens settings
+        # Learnable token initialization
         self.num_task = len(configs_list)
-        self.prompt_tokens = nn.ParameterDict({})
-        self.mask_tokens = nn.ParameterDict({})
-        self.cls_tokens = nn.ParameterDict({})
+        self.prompt_tokens = nn.ParameterDict({}) # prompt chung theo dataset
+        self.mask_tokens = nn.ParameterDict({}) # token dùng cho forecast
+        self.cls_tokens = nn.ParameterDict({}) # token dùng cho classification
         self.category_tokens = nn.ParameterDict({})
 
         for i in range(self.num_task):
             dataset_name = configs_list[i][1]['dataset']
             task_data_name = configs_list[i][0]
+
+            # Tạo prompt token cho dataset nếu chưa có
             if dataset_name not in self.prompt_tokens:
-                self.prompt_tokens[dataset_name] = torch.zeros(
-                    1, configs_list[i][1]['enc_in'], args.prompt_num, args.d_model)
-                torch.nn.init.normal_(
-                    self.prompt_tokens[dataset_name], std=.02)
-                self.mask_tokens[dataset_name] = torch.zeros(
-                    1, configs_list[i][1]['enc_in'], 1, args.d_model)
+                self.prompt_tokens[dataset_name] = torch.zeros(1, configs_list[i][1]['enc_in'], args.prompt_num, args.d_model)
+                # shape: [1, n_vars, prompt_num, d_model] - prompt_num: số prompt token
+                torch.nn.init.normal_(self.prompt_tokens[dataset_name], std=.02)
+                self.mask_tokens[dataset_name] = torch.zeros(1, configs_list[i][1]['enc_in'], 1, args.d_model)
+                # shape: [1, n_vars, 1, d_model]
 
             if configs_list[i][1]['task_name'] == 'classification':
                 self.category_tokens[task_data_name] = torch.zeros(
                     1, configs_list[i][1]['enc_in'], configs_list[i][1]['num_class'], args.d_model)
+                # shape: [1, n_vars, num_class, d_model]
                 torch.nn.init.normal_(
                     self.category_tokens[task_data_name], std=.02)
                 self.cls_tokens[task_data_name] = torch.zeros(
                     1, configs_list[i][1]['enc_in'], 1, args.d_model)
+                # shape: [1, n_vars, 1, d_model]
                 torch.nn.init.normal_(self.cls_tokens[task_data_name], std=.02)
             if pretrain:
                 self.cls_tokens[task_data_name] = torch.zeros(
@@ -899,6 +943,9 @@ class Model(nn.Module):
         return mask_seq
 
     def pretraining(self, x, x_mark, task_id, enable_mask=False):
+        # x: [B, seq_len, n_vars]
+
+        # Lấy token theo task
         dataset_name = self.configs_list[task_id][1]['dataset']
         task_data_name = self.configs_list[task_id][0]
         prefix_prompt = self.prompt_tokens[dataset_name]
@@ -908,21 +955,31 @@ class Model(nn.Module):
         seq_len = x.shape[1]
         x, means, stdev, n_vars, padding = self.tokenize(x)
         seq_token_len = x.shape[-2]
-
-        # append prompt tokens
+        # x: [B*n_vars, n_patches, d_model]
         x = torch.reshape(
             x, (-1, n_vars, x.shape[-2], x.shape[-1]))
+        # Shape: [B, n_vars, n_patches, d_model]
+
+        # append prompt tokens
         # prepare prompts
         this_prompt = prefix_prompt.repeat(x.shape[0], 1, 1, 1)
 
         if enable_mask:
+            # Chọn masking: random/right masking
             mask = self.choose_masking(x, self.right_prob,
                                        self.min_mask_ratio, self.max_mask_ratio)
+            
+            # mask: [B, n_patches]
+            
             mask_repeat = mask.unsqueeze(dim=1).unsqueeze(dim=-1)
             mask_repeat = mask_repeat.repeat(1, x.shape[1], 1, x.shape[-1])
-            x = x * (1-mask_repeat) + mask_token * mask_repeat  # todo
+            # [B, n_patches]
+            # -> [B, 1, n_patches, 1]
+            # -> [B, n_vars, n_patches, d_model]
+            x = x * (1-mask_repeat) + mask_token * mask_repeat 
 
             init_full_input = torch.cat((this_prompt, x), dim=-2)
+            # init_full_input: [B, n_vars, prompt_num + n_patches, d_model]
             init_mask_prompt = self.prompt2forecat(
                 init_full_input.transpose(-1, -2), x.shape[2]).transpose(-1, -2)
             # keep the unmasked tokens and fill the masked ones with init_mask_prompt.
