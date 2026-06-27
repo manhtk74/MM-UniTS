@@ -887,6 +887,8 @@ class Exp_All_Task(object):
         return mse, mae
 
     def split_batch(self, batch, small_batch_size, task_name):
+        small_batch_size = max(1, int(small_batch_size))
+
         def split_tensor(tensor, size):
             return [tensor[i:min(i + size, tensor.size(0))] for i in range(0, tensor.size(0), size)]
         if task_name == 'classification':
@@ -968,7 +970,7 @@ class Exp_All_Task(object):
                     task_name = self.task_data_config_list[task_id][1]['task_name']
                     print(task_id,  "max batch size:", max_batch_size)
                     # If any exception occurs, break the loop
-                    self.task_data_config_list[task_id][1]['max_batch'] = max_batch_size
+                    self.task_data_config_list[task_id][1]['max_batch'] = max(1, max_batch_size)
                     del model_tmp
                     model_tmp = self._build_model(ddp=False)
                     print(f"An exception occurred: {e}")

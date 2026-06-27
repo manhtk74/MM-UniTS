@@ -10,6 +10,19 @@ import pandas as pd
 TIME_MMD_DEFAULTS = None
 MINDTS_AD_DEFAULTS = None
 
+TIME_MMD_PAPER_HORIZONS = {
+    "Agriculture": [6, 8, 10, 12],
+    "Climate": [6, 8, 10, 12],
+    "Economy": [6, 8, 10, 12],
+    "Energy": [12, 24, 36, 48],
+    "Environment": [48, 96, 192, 336],
+    "Health": [12, 24, 36, 48],
+    "Health_US": [12, 24, 36, 48],
+    "Security": [6, 8, 10, 12],
+    "SocialGood": [6, 8, 10, 12],
+    "Traffic": [6, 8, 10, 12],
+}
+
 
 def repo_root_from_script():
     return Path(__file__).resolve().parents[3]
@@ -216,6 +229,30 @@ def write_yaml(path, lines):
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def timemmd_horizons(domain):
+    return TIME_MMD_PAPER_HORIZONS.get(domain, [])
+
+
+def append_timemmd_forecast_entry(lines, domain, pred_len):
+    lines.extend([
+        f"  LTF_TimeMMD_{domain}_p{pred_len}:",
+        "    task_name: long_term_forecast",
+        f"    dataset: TimeMMD_{domain}",
+        "    data: custom",
+        "    embed: timeF",
+        f"    root_path: ./dataset/TimeMMD/{domain}/",
+        f"    data_path: {domain}.csv",
+        "    features: S",
+        "    seq_len: 96",
+        "    label_len: 48",
+        f"    pred_len: {pred_len}",
+        "    enc_in: 1",
+        "    dec_in: 1",
+        "    c_out: 1",
+        "",
+    ])
+
+
 def write_timemmd_pretrain_yaml(units_root, manifest):
     lines = ["task_dataset:"]
     for item in manifest["time_mmd"]:
@@ -244,23 +281,8 @@ def write_timemmd_forecast_yaml(units_root, manifest):
     lines = ["task_dataset:"]
     for item in manifest["time_mmd"]:
         domain = item["domain"]
-        lines.extend([
-            f"  LTF_TimeMMD_{domain}_p24:",
-            "    task_name: long_term_forecast",
-            f"    dataset: TimeMMD_{domain}",
-            "    data: custom",
-            "    embed: timeF",
-            f"    root_path: ./dataset/TimeMMD/{domain}/",
-            f"    data_path: {domain}.csv",
-            "    features: S",
-            "    seq_len: 96",
-            "    label_len: 48",
-            "    pred_len: 24",
-            "    enc_in: 1",
-            "    dec_in: 1",
-            "    c_out: 1",
-            "",
-        ])
+        for pred_len in timemmd_horizons(domain):
+            append_timemmd_forecast_entry(lines, domain, pred_len)
     write_yaml(units_root / "data_provider" / "custom_timemmd_forecast.yaml", lines)
 
 
@@ -292,23 +314,8 @@ def write_mindts_anomaly_yaml(units_root, manifest):
 def append_timemmd_forecast_entries(lines, manifest):
     for item in manifest["time_mmd"]:
         domain = item["domain"]
-        lines.extend([
-            f"  LTF_TimeMMD_{domain}_p24:",
-            "    task_name: long_term_forecast",
-            f"    dataset: TimeMMD_{domain}",
-            "    data: custom",
-            "    embed: timeF",
-            f"    root_path: ./dataset/TimeMMD/{domain}/",
-            f"    data_path: {domain}.csv",
-            "    features: S",
-            "    seq_len: 96",
-            "    label_len: 48",
-            "    pred_len: 24",
-            "    enc_in: 1",
-            "    dec_in: 1",
-            "    c_out: 1",
-            "",
-        ])
+        for pred_len in timemmd_horizons(domain):
+            append_timemmd_forecast_entry(lines, domain, pred_len)
 
 
 def append_mindts_anomaly_entries(lines, manifest):

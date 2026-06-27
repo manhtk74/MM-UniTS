@@ -57,11 +57,21 @@ Default config: `data_provider/custom_all_prompt.yaml`.
 ## 5. Prompt tune forecasting only
 
 ```bash
+CONFIG_PATH=data_provider/custom_timemmd_forecast.yaml \
+EXP_NAME=custom_timemmd_forecast_prompt \
+PROJECT_NAME=custom_timemmd_forecast_prompt \
 CKPT_PATH=./newcheckpoints/units_x64_pretrain_checkpoint.pth \
-bash scripts/custom/run_prompt_forecast_timemmd.sh
+bash scripts/custom/run_prompt_all_custom.sh
 ```
 
 Default config: `data_provider/custom_timemmd_forecast.yaml`.
+The TimeMMD forecast config follows the Aurora/TimeMMD benchmark setting:
+
+- Agriculture, Climate, Economy, Security, SocialGood, Traffic: prediction lengths `6, 8, 10, 12`
+- Energy and Health_US: prediction lengths `12, 24, 36, 48`
+- Environment: prediction lengths `48, 96, 192, 336`
+
+`Health_US` is used for the benchmark Health domain. `Health_AFR` is prepared when present, but it is not included in the forecast benchmark config because it does not match the Health dataset statistics used in the paper.
 
 ## 6. Prompt tune anomaly detection only
 

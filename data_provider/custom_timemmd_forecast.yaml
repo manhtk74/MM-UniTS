@@ -1,5 +1,5 @@
 task_dataset:
-  LTF_TimeMMD_Agriculture_p24:
+  LTF_TimeMMD_Agriculture_p6:
     task_name: long_term_forecast
     dataset: TimeMMD_Agriculture
     data: custom
@@ -9,12 +9,57 @@ task_dataset:
     features: S
     seq_len: 96
     label_len: 48
-    pred_len: 24
+    pred_len: 6
     enc_in: 1
     dec_in: 1
     c_out: 1
 
-  LTF_TimeMMD_Climate_p24:
+  LTF_TimeMMD_Agriculture_p8:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Agriculture
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Agriculture/
+    data_path: Agriculture.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 8
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Agriculture_p10:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Agriculture
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Agriculture/
+    data_path: Agriculture.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 10
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Agriculture_p12:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Agriculture
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Agriculture/
+    data_path: Agriculture.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 12
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Climate_p6:
     task_name: long_term_forecast
     dataset: TimeMMD_Climate
     data: custom
@@ -24,12 +69,57 @@ task_dataset:
     features: S
     seq_len: 96
     label_len: 48
-    pred_len: 24
+    pred_len: 6
     enc_in: 1
     dec_in: 1
     c_out: 1
 
-  LTF_TimeMMD_Economy_p24:
+  LTF_TimeMMD_Climate_p8:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Climate
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Climate/
+    data_path: Climate.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 8
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Climate_p10:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Climate
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Climate/
+    data_path: Climate.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 10
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Climate_p12:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Climate
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Climate/
+    data_path: Climate.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 12
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Economy_p6:
     task_name: long_term_forecast
     dataset: TimeMMD_Economy
     data: custom
@@ -39,7 +129,67 @@ task_dataset:
     features: S
     seq_len: 96
     label_len: 48
-    pred_len: 24
+    pred_len: 6
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Economy_p8:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Economy
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Economy/
+    data_path: Economy.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 8
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Economy_p10:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Economy
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Economy/
+    data_path: Economy.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 10
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Economy_p12:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Economy
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Economy/
+    data_path: Economy.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 12
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Energy_p12:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Energy
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Energy/
+    data_path: Energy.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 12
     enc_in: 1
     dec_in: 1
     c_out: 1
@@ -59,7 +209,37 @@ task_dataset:
     dec_in: 1
     c_out: 1
 
-  LTF_TimeMMD_Environment_p24:
+  LTF_TimeMMD_Energy_p36:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Energy
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Energy/
+    data_path: Energy.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 36
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Energy_p48:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Energy
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Energy/
+    data_path: Energy.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 48
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Environment_p48:
     task_name: long_term_forecast
     dataset: TimeMMD_Environment
     data: custom
@@ -69,22 +249,67 @@ task_dataset:
     features: S
     seq_len: 96
     label_len: 48
-    pred_len: 24
+    pred_len: 48
     enc_in: 1
     dec_in: 1
     c_out: 1
 
-  LTF_TimeMMD_Health_AFR_p24:
+  LTF_TimeMMD_Environment_p96:
     task_name: long_term_forecast
-    dataset: TimeMMD_Health_AFR
+    dataset: TimeMMD_Environment
     data: custom
     embed: timeF
-    root_path: ./dataset/TimeMMD/Health_AFR/
-    data_path: Health_AFR.csv
+    root_path: ./dataset/TimeMMD/Environment/
+    data_path: Environment.csv
     features: S
     seq_len: 96
     label_len: 48
-    pred_len: 24
+    pred_len: 96
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Environment_p192:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Environment
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Environment/
+    data_path: Environment.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 192
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Environment_p336:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Environment
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Environment/
+    data_path: Environment.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 336
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Health_US_p12:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Health_US
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Health_US/
+    data_path: Health_US.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 12
     enc_in: 1
     dec_in: 1
     c_out: 1
@@ -104,7 +329,37 @@ task_dataset:
     dec_in: 1
     c_out: 1
 
-  LTF_TimeMMD_Security_p24:
+  LTF_TimeMMD_Health_US_p36:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Health_US
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Health_US/
+    data_path: Health_US.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 36
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Health_US_p48:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Health_US
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Health_US/
+    data_path: Health_US.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 48
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Security_p6:
     task_name: long_term_forecast
     dataset: TimeMMD_Security
     data: custom
@@ -114,12 +369,57 @@ task_dataset:
     features: S
     seq_len: 96
     label_len: 48
-    pred_len: 24
+    pred_len: 6
     enc_in: 1
     dec_in: 1
     c_out: 1
 
-  LTF_TimeMMD_SocialGood_p24:
+  LTF_TimeMMD_Security_p8:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Security
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Security/
+    data_path: Security.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 8
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Security_p10:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Security
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Security/
+    data_path: Security.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 10
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Security_p12:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Security
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Security/
+    data_path: Security.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 12
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_SocialGood_p6:
     task_name: long_term_forecast
     dataset: TimeMMD_SocialGood
     data: custom
@@ -129,12 +429,57 @@ task_dataset:
     features: S
     seq_len: 96
     label_len: 48
-    pred_len: 24
+    pred_len: 6
     enc_in: 1
     dec_in: 1
     c_out: 1
 
-  LTF_TimeMMD_Traffic_p24:
+  LTF_TimeMMD_SocialGood_p8:
+    task_name: long_term_forecast
+    dataset: TimeMMD_SocialGood
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/SocialGood/
+    data_path: SocialGood.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 8
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_SocialGood_p10:
+    task_name: long_term_forecast
+    dataset: TimeMMD_SocialGood
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/SocialGood/
+    data_path: SocialGood.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 10
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_SocialGood_p12:
+    task_name: long_term_forecast
+    dataset: TimeMMD_SocialGood
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/SocialGood/
+    data_path: SocialGood.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 12
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Traffic_p6:
     task_name: long_term_forecast
     dataset: TimeMMD_Traffic
     data: custom
@@ -144,7 +489,52 @@ task_dataset:
     features: S
     seq_len: 96
     label_len: 48
-    pred_len: 24
+    pred_len: 6
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Traffic_p8:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Traffic
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Traffic/
+    data_path: Traffic.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 8
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Traffic_p10:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Traffic
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Traffic/
+    data_path: Traffic.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 10
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  LTF_TimeMMD_Traffic_p12:
+    task_name: long_term_forecast
+    dataset: TimeMMD_Traffic
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Traffic/
+    data_path: Traffic.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 12
     enc_in: 1
     dec_in: 1
     c_out: 1
