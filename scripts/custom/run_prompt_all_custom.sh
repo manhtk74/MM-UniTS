@@ -7,12 +7,23 @@ MODEL_NAME="${MODEL_NAME:-UniTS}"
 EXP_NAME="${EXP_NAME:-custom_all_prompt}"
 PROJECT_NAME="${PROJECT_NAME:-custom_all_prompt}"
 WANDB_MODE="${WANDB_MODE:-disabled}"
-D_MODEL="${D_MODEL:-64}"
 PROMPT_EPOCHS="${PROMPT_EPOCHS:-5}"
 BATCH_SIZE="${BATCH_SIZE:-16}"
 ACC_IT="${ACC_IT:-4}"
 CONFIG_PATH="${CONFIG_PATH:-data_provider/custom_all_prompt.yaml}"
 CKPT_PATH="${CKPT_PATH:-./newcheckpoints/units_x64_pretrain_checkpoint.pth}"
+D_MODEL="${D_MODEL:-}"
+if [[ -z "$D_MODEL" ]]; then
+  if [[ "$CKPT_PATH" == *"x128"* ]]; then
+    D_MODEL=128
+  elif [[ "$CKPT_PATH" == *"x64"* ]]; then
+    D_MODEL=64
+  elif [[ "$CKPT_PATH" == *"x32"* ]]; then
+    D_MODEL=32
+  else
+    D_MODEL=64
+  fi
+fi
 SUBSAMPLE_PCT="${SUBSAMPLE_PCT:-0.20}"
 ANOMALY_RATIO="${ANOMALY_RATIO:-11.25}"
 PORT="${PORT:-$((RANDOM % 9000 + 1000))}"
