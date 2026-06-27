@@ -1,0 +1,10 @@
+{
+  "domain": "Weather",
+  "source": "D:\\Foundation_TS\\dataset\\MindTS\\dataset\\anomaly_detect\\data\\Weather.csv",
+  "output": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\Weather",
+  "train_timesteps": 9871,
+  "test_timesteps": 2468,
+  "channels": 4,
+  "test_anomalies": 422,
+  "anomaly_ratio_percent": 17.098865509033203
+}

@@ -1,0 +1,10 @@
+{
+  "domain": "Environment",
+  "source": "D:\\Foundation_TS\\dataset\\MindTS\\dataset\\anomaly_detect\\data\\Environment.csv",
+  "output": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\Environment",
+  "train_timesteps": 12782,
+  "test_timesteps": 3199,
+  "channels": 1,
+  "test_anomalies": 186,
+  "anomaly_ratio_percent": 5.814316749572754
+}

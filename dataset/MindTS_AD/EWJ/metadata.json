@@ -1,0 +1,10 @@
+{
+  "domain": "EWJ",
+  "source": "D:\\Foundation_TS\\dataset\\MindTS\\dataset\\anomaly_detect\\data\\EWJ.csv",
+  "output": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\EWJ",
+  "train_timesteps": 2126,
+  "test_timesteps": 532,
+  "channels": 1,
+  "test_anomalies": 53,
+  "anomaly_ratio_percent": 9.962406158447266
+}

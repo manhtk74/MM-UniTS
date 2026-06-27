@@ -1,0 +1,204 @@
+{
+  "time_mmd": [
+    {
+      "domain": "Agriculture",
+      "source": "D:\\Foundation_TS\\dataset\\Time-MMD\\numerical\\Agriculture\\Agriculture.csv",
+      "output": "D:\\Foundation_TS\\UniTS\\dataset\\TimeMMD\\Agriculture\\Agriculture.csv",
+      "timesteps": 532,
+      "value_columns": [
+        "value_1",
+        "value_2",
+        "OT"
+      ],
+      "enc_in_s": 1,
+      "enc_in_m": 3
+    },
+    {
+      "domain": "Climate",
+      "source": "D:\\Foundation_TS\\dataset\\Time-MMD\\numerical\\Climate\\Climate.csv",
+      "output": "D:\\Foundation_TS\\UniTS\\dataset\\TimeMMD\\Climate\\Climate.csv",
+      "timesteps": 1272,
+      "value_columns": [
+        "value_1",
+        "value_2",
+        "value_3",
+        "value_4",
+        "value_5",
+        "OT"
+      ],
+      "enc_in_s": 1,
+      "enc_in_m": 6
+    },
+    {
+      "domain": "Economy",
+      "source": "D:\\Foundation_TS\\dataset\\Time-MMD\\numerical\\Economy\\Economy.csv",
+      "output": "D:\\Foundation_TS\\UniTS\\dataset\\TimeMMD\\Economy\\Economy.csv",
+      "timesteps": 447,
+      "value_columns": [
+        "value_1",
+        "value_2",
+        "OT"
+      ],
+      "enc_in_s": 1,
+      "enc_in_m": 3
+    },
+    {
+      "domain": "Energy",
+      "source": "D:\\Foundation_TS\\dataset\\Time-MMD\\numerical\\Energy\\Energy.csv",
+      "output": "D:\\Foundation_TS\\UniTS\\dataset\\TimeMMD\\Energy\\Energy.csv",
+      "timesteps": 1622,
+      "value_columns": [
+        "value_1",
+        "value_2",
+        "value_3",
+        "value_4",
+        "value_5",
+        "value_6",
+        "value_7",
+        "value_8",
+        "OT"
+      ],
+      "enc_in_s": 1,
+      "enc_in_m": 9
+    },
+    {
+      "domain": "Environment",
+      "source": "D:\\Foundation_TS\\dataset\\Time-MMD\\numerical\\Environment\\Environment.csv",
+      "output": "D:\\Foundation_TS\\UniTS\\dataset\\TimeMMD\\Environment\\Environment.csv",
+      "timesteps": 15979,
+      "value_columns": [
+        "value_1",
+        "OT"
+      ],
+      "enc_in_s": 1,
+      "enc_in_m": 2
+    },
+    {
+      "domain": "Health_AFR",
+      "source": "D:\\Foundation_TS\\dataset\\Time-MMD\\numerical\\Health_AFR\\Health_AFR.csv",
+      "output": "D:\\Foundation_TS\\UniTS\\dataset\\TimeMMD\\Health_AFR\\Health_AFR.csv",
+      "timesteps": 1461,
+      "value_columns": [
+        "OT"
+      ],
+      "enc_in_s": 1,
+      "enc_in_m": 1
+    },
+    {
+      "domain": "Health_US",
+      "source": "D:\\Foundation_TS\\dataset\\Time-MMD\\numerical\\Health_US\\Health_US.csv",
+      "output": "D:\\Foundation_TS\\UniTS\\dataset\\TimeMMD\\Health_US\\Health_US.csv",
+      "timesteps": 1384,
+      "value_columns": [
+        "value_1",
+        "value_2",
+        "value_3",
+        "value_4",
+        "value_5",
+        "value_6",
+        "value_7",
+        "value_8",
+        "value_9",
+        "value_10",
+        "OT"
+      ],
+      "enc_in_s": 1,
+      "enc_in_m": 11
+    },
+    {
+      "domain": "Security",
+      "source": "D:\\Foundation_TS\\dataset\\Time-MMD\\numerical\\Security\\Security.csv",
+      "output": "D:\\Foundation_TS\\UniTS\\dataset\\TimeMMD\\Security\\Security.csv",
+      "timesteps": 309,
+      "value_columns": [
+        "OT"
+      ],
+      "enc_in_s": 1,
+      "enc_in_m": 1
+    },
+    {
+      "domain": "SocialGood",
+      "source": "D:\\Foundation_TS\\dataset\\Time-MMD\\numerical\\SocialGood\\SocialGood.csv",
+      "output": "D:\\Foundation_TS\\UniTS\\dataset\\TimeMMD\\SocialGood\\SocialGood.csv",
+      "timesteps": 924,
+      "value_columns": [
+        "OT"
+      ],
+      "enc_in_s": 1,
+      "enc_in_m": 1
+    },
+    {
+      "domain": "Traffic",
+      "source": "D:\\Foundation_TS\\dataset\\Time-MMD\\numerical\\Traffic\\Traffic.csv",
+      "output": "D:\\Foundation_TS\\UniTS\\dataset\\TimeMMD\\Traffic\\Traffic.csv",
+      "timesteps": 651,
+      "value_columns": [
+        "OT"
+      ],
+      "enc_in_s": 1,
+      "enc_in_m": 1
+    }
+  ],
+  "mindts_ad": [
+    {
+      "domain": "EWJ",
+      "source": "D:\\Foundation_TS\\dataset\\MindTS\\dataset\\anomaly_detect\\data\\EWJ.csv",
+      "output": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\EWJ",
+      "train_timesteps": 2126,
+      "test_timesteps": 532,
+      "channels": 1,
+      "test_anomalies": 53,
+      "anomaly_ratio_percent": 9.962406158447266
+    },
+    {
+      "domain": "Energy",
+      "source": "D:\\Foundation_TS\\dataset\\MindTS\\dataset\\anomaly_detect\\data\\Energy.csv",
+      "output": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\Energy",
+      "train_timesteps": 1297,
+      "test_timesteps": 325,
+      "channels": 9,
+      "test_anomalies": 56,
+      "anomaly_ratio_percent": 17.23076820373535
+    },
+    {
+      "domain": "Environment",
+      "source": "D:\\Foundation_TS\\dataset\\MindTS\\dataset\\anomaly_detect\\data\\Environment.csv",
+      "output": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\Environment",
+      "train_timesteps": 12782,
+      "test_timesteps": 3199,
+      "channels": 1,
+      "test_anomalies": 186,
+      "anomaly_ratio_percent": 5.814316749572754
+    },
+    {
+      "domain": "KR",
+      "source": "D:\\Foundation_TS\\dataset\\MindTS\\dataset\\anomaly_detect\\data\\KR.csv",
+      "output": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\KR",
+      "train_timesteps": 2124,
+      "test_timesteps": 531,
+      "channels": 1,
+      "test_anomalies": 33,
+      "anomaly_ratio_percent": 6.214689254760742
+    },
+    {
+      "domain": "MDT",
+      "source": "D:\\Foundation_TS\\dataset\\MindTS\\dataset\\anomaly_detect\\data\\MDT.csv",
+      "output": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\MDT",
+      "train_timesteps": 2186,
+      "test_timesteps": 546,
+      "channels": 1,
+      "test_anomalies": 61,
+      "anomaly_ratio_percent": 11.172161102294922
+    },
+    {
+      "domain": "Weather",
+      "source": "D:\\Foundation_TS\\dataset\\MindTS\\dataset\\anomaly_detect\\data\\Weather.csv",
+      "output": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\Weather",
+      "train_timesteps": 9871,
+      "test_timesteps": 2468,
+      "channels": 4,
+      "test_anomalies": 422,
+      "anomaly_ratio_percent": 17.098865509033203
+    }
+  ]
+}

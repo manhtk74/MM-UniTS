@@ -1,0 +1,10 @@
+{
+  "domain": "MDT",
+  "source": "D:\\Foundation_TS\\dataset\\MindTS\\dataset\\anomaly_detect\\data\\MDT.csv",
+  "output": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\MDT",
+  "train_timesteps": 2186,
+  "test_timesteps": 546,
+  "channels": 1,
+  "test_anomalies": 61,
+  "anomaly_ratio_percent": 11.172161102294922
+}

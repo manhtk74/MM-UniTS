@@ -1,0 +1,10 @@
+{
+  "domain": "Energy",
+  "source": "D:\\Foundation_TS\\dataset\\MindTS\\dataset\\anomaly_detect\\data\\Energy.csv",
+  "output": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\Energy",
+  "train_timesteps": 1297,
+  "test_timesteps": 325,
+  "channels": 9,
+  "test_anomalies": 56,
+  "anomaly_ratio_percent": 17.23076820373535
+}

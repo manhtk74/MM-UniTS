@@ -1,6 +1,10 @@
 from pathlib import Path
-from gluonts.dataset.jsonl import JsonLinesWriter
-from gluonts.dataset.repository import get_dataset
+try:
+    from gluonts.dataset.jsonl import JsonLinesWriter
+    from gluonts.dataset.repository import get_dataset
+except ImportError:
+    JsonLinesWriter = None
+    get_dataset = None
 import os
 import numpy as np
 import pandas as pd
@@ -12,7 +16,10 @@ from sklearn.preprocessing import StandardScaler
 from utils.timefeatures import time_features
 # from data_provider.m4 import M4Dataset, M4Meta # removed due to 
 from data_provider.uea import subsample, interpolate_missing, Normalizer
-from sktime.datasets import load_from_tsfile_to_dataframe
+try:
+    from sktime.datasets import load_from_tsfile_to_dataframe
+except ImportError:
+    load_from_tsfile_to_dataframe = None
 import warnings
 
 warnings.filterwarnings('ignore')
@@ -561,6 +568,56 @@ class SMDSegLoader(Dataset):
                 self.test_labels[index // self.step * self.win_size:index // self.step * self.win_size + self.win_size])
 
 
+class NPYSegLoader(Dataset):
+    def __init__(self, root_path, win_size, step=1, flag="train"):
+        self.flag = flag
+        self.step = step
+        self.win_size = win_size
+        self.scaler = StandardScaler()
+
+        train_data = np.load(os.path.join(root_path, "train.npy"))
+        test_data = np.load(os.path.join(root_path, "test.npy"))
+        test_labels = np.load(os.path.join(root_path, "test_label.npy"))
+
+        train_data = np.nan_to_num(train_data.astype(np.float32))
+        test_data = np.nan_to_num(test_data.astype(np.float32))
+        if train_data.ndim == 1:
+            train_data = train_data.reshape(-1, 1)
+        if test_data.ndim == 1:
+            test_data = test_data.reshape(-1, 1)
+
+        self.scaler.fit(train_data)
+        self.train = self.scaler.transform(train_data)
+        self.test = self.scaler.transform(test_data)
+        data_len = len(self.train)
+        self.val = self.train[int(data_len * 0.8):]
+        self.test_labels = test_labels.reshape(-1)
+
+    def __len__(self):
+        if self.flag == "train":
+            return (self.train.shape[0] - self.win_size) // self.step + 1
+        elif self.flag == "val":
+            return (self.val.shape[0] - self.win_size) // self.step + 1
+        elif self.flag == "test":
+            return (self.test.shape[0] - self.win_size) // self.step + 1
+        else:
+            return (self.test.shape[0] - self.win_size) // self.win_size + 1
+
+    def __getitem__(self, index):
+        index = index * self.step
+        if self.flag == "train":
+            return np.float32(self.train[index:index + self.win_size]), np.float32(self.test_labels[0:self.win_size])
+        elif self.flag == "val":
+            return np.float32(self.val[index:index + self.win_size]), np.float32(self.test_labels[0:self.win_size])
+        elif self.flag == "test":
+            return np.float32(self.test[index:index + self.win_size]), np.float32(
+                self.test_labels[index:index + self.win_size])
+        else:
+            start = index // self.step * self.win_size
+            end = start + self.win_size
+            return np.float32(self.test[start:end]), np.float32(self.test_labels[start:end])
+
+
 class SWATSegLoader(Dataset):
     def __init__(self, root_path, win_size, step=1, flag="train"):
         self.flag = flag
@@ -747,7 +804,7 @@ class UEAloader(Dataset):
         return len(self.all_IDs)
 
 
-default_dataset_writer = JsonLinesWriter()
+default_dataset_writer = JsonLinesWriter() if JsonLinesWriter is not None else None
 
 
 class GLUONTSDataset(Dataset):

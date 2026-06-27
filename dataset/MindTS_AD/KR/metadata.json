@@ -1,0 +1,10 @@
+{
+  "domain": "KR",
+  "source": "D:\\Foundation_TS\\dataset\\MindTS\\dataset\\anomaly_detect\\data\\KR.csv",
+  "output": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\KR",
+  "train_timesteps": 2124,
+  "test_timesteps": 531,
+  "channels": 1,
+  "test_anomalies": 33,
+  "anomaly_ratio_percent": 6.214689254760742
+}

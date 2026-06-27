@@ -1,5 +1,5 @@
 from data_provider.data_loader import Dataset_ETT_hour, Dataset_ETT_minute, Dataset_Custom, PSMSegLoader, \
-    MSLSegLoader, SMAPSegLoader, SMDSegLoader, SWATSegLoader, UEAloader, GLUONTSDataset
+    MSLSegLoader, SMAPSegLoader, SMDSegLoader, NPYSegLoader, SWATSegLoader, UEAloader, GLUONTSDataset
 from data_provider.uea import collate_fn
 import torch
 from torch.utils.data import DataLoader, Subset
@@ -16,6 +16,7 @@ data_dict = {
     'MSL': MSLSegLoader,
     'SMAP': SMAPSegLoader,
     'SMD': SMDSegLoader,
+    'NPY_AD': NPYSegLoader,
     'SWAT': SWATSegLoader,
     'UEA': UEAloader,
     # datasets from gluonts package:
