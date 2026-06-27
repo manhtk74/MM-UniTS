@@ -6,7 +6,7 @@ exp_name=prompt_tuning_few_shot_anomaly_detection_pct05
 
 # Path to the supervised checkpoint
 # get ssl pretrained checkpoint: scripts/pretrain_prompt_learning/UniTS_pretrain_x32.sh
-ckpt_path=newcheckpoints/units_x32_pretrain_checkpoint.pth
+ckpt_path=checkpoints/units_x32_pretrain_checkpoint.pth
 random_port=$((RANDOM % 9000 + 1000))
 
 torchrun --nnodes 1 --nproc-per-node=1  --master_port $random_port  run.py \
