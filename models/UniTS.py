@@ -568,6 +568,8 @@ class ForecastHead(nn.Module):
     def forward(self, x_full, pred_len, token_len):
         # x_full: [B, n_vars, L_full, d_model]
         # where L_full = prefix prompt tokens + input patch tokens + prediction tokens
+        expected_token_len = calculate_unfold_output_length(
+            pred_len, self.patch_len, self.stride)
 
         x_full = self.proj_in(x_full)
         # x_full: [B, n_vars, L_full, d_model]
@@ -583,6 +585,11 @@ class ForecastHead(nn.Module):
         x = self.mlp(x)
         x = self.proj_out(x)
         # x: [B, n_vars, token_len, patch_len]
+        if x.shape[-2] > expected_token_len:
+            x = x[:, :, -expected_token_len:]
+        elif x.shape[-2] < expected_token_len:
+            pad_len = expected_token_len - x.shape[-2]
+            x = F.pad(x, (0, 0, pad_len, 0))
 
         bs, n_vars = x.shape[0], x.shape[1]
         x = x.reshape(-1, x.shape[-2], x.shape[-1])
