@@ -1,5 +1,5 @@
 model_name=UniTS
-wandb_mode=online
+wandb_mode=disabled
 project_name=anomaly_detection
 exp_name=prompt_tuning_few_shot_anomaly_detection_pct05
 
