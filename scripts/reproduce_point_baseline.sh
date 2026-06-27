@@ -10,11 +10,11 @@ set -euo pipefail
 #   TARGET=ad DATASET=smd bash scripts/reproduce_point_baseline.sh
 #   TARGET=ad DATASET=psm bash scripts/reproduce_point_baseline.sh
 #
-# Outputs are the original UniTS logs/checkpoints under:
-#   outputs/point_baseline/
-#
-# Note: this script reproduces the current repo baseline metrics. It does not
-# save y_pred/x_recon arrays yet; that belongs to the calibrated pipeline.
+# Outputs:
+#   Original UniTS logs/checkpoints:
+#     outputs/point_baseline/
+#   Exported .npz artifacts for conformal calibration:
+#     outputs/units_cq/predictions/
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
@@ -24,12 +24,16 @@ DATASET="${DATASET:-all}"    # all | weather | ecl | smd | psm
 SEED="${SEED:-2021}"
 WANDB_MODE="${WANDB_MODE:-disabled}"
 OUTPUT_DIR="${OUTPUT_DIR:-outputs/point_baseline}"
+ARTIFACT_DIR="${ARTIFACT_DIR:-outputs/units_cq/predictions}"
+EXPORT_ARTIFACTS="${EXPORT_ARTIFACTS:-1}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 FORECAST_CKPT="${FORECAST_CKPT:-checkpoints/units_x128_pretrain_checkpoint.pth}"
 AD_CKPT="${AD_CKPT:-checkpoints/units_x32_pretrain_checkpoint.pth}"
 BATCH_SIZE="${BATCH_SIZE:-32}"
 ANOMALY_RATIO="${ANOMALY_RATIO:-1.0}"
 
 mkdir -p "$OUTPUT_DIR/logs"
+mkdir -p "$ARTIFACT_DIR"
 
 need_file() {
     local path="$1"
@@ -88,6 +92,82 @@ run_torch() {
     torchrun --nnodes 1 --nproc-per-node=1 --master_port "$port" run.py "$@" 2>&1 | tee "$log_file"
 }
 
+export_forecast_artifacts() {
+    if [ "$EXPORT_ARTIFACTS" != "1" ]; then
+        echo "[skip] EXPORT_ARTIFACTS=$EXPORT_ARTIFACTS"
+        return
+    fi
+
+    if [ "$DATASET" = "all" ] || [ "$DATASET" = "weather" ]; then
+        echo
+        echo "[export] WeatherP96 point forecast artifact"
+        "$PYTHON_BIN" scripts/export_point_artifacts.py \
+            --task forecast \
+            --dataset_key LTF_Weather_p96 \
+            --task_data_config_path data_provider/baseline_forecast_weather_p96.yaml \
+            --pretrained_weight "$FORECAST_CKPT" \
+            --output_path "$ARTIFACT_DIR/weather_p96_units_point_seed${SEED}.npz" \
+            --d_model 128 \
+            --dropout 0.1 \
+            --batch_size 1 \
+            --seed "$SEED"
+    fi
+
+    if [ "$DATASET" = "all" ] || [ "$DATASET" = "ecl" ]; then
+        echo
+        echo "[export] ECLP96 point forecast artifact"
+        "$PYTHON_BIN" scripts/export_point_artifacts.py \
+            --task forecast \
+            --dataset_key LTF_ECL_p96 \
+            --task_data_config_path data_provider/baseline_forecast_ecl_p96.yaml \
+            --pretrained_weight "$FORECAST_CKPT" \
+            --output_path "$ARTIFACT_DIR/ecl_p96_units_point_seed${SEED}.npz" \
+            --d_model 128 \
+            --dropout 0.1 \
+            --batch_size 1 \
+            --seed "$SEED"
+    fi
+}
+
+export_ad_artifacts() {
+    if [ "$EXPORT_ARTIFACTS" != "1" ]; then
+        echo "[skip] EXPORT_ARTIFACTS=$EXPORT_ARTIFACTS"
+        return
+    fi
+
+    if [ "$DATASET" = "all" ] || [ "$DATASET" = "smd" ]; then
+        echo
+        echo "[export] SMD reconstruction-score artifact"
+        "$PYTHON_BIN" scripts/export_point_artifacts.py \
+            --task ad \
+            --dataset_key SMD \
+            --task_data_config_path data_provider/baseline_anomaly_smd.yaml \
+            --pretrained_weight "$AD_CKPT" \
+            --output_path "$ARTIFACT_DIR/smd_units_original_ad_seed${SEED}.npz" \
+            --d_model 32 \
+            --dropout 0.0 \
+            --batch_size "$BATCH_SIZE" \
+            --anomaly_ratio "$ANOMALY_RATIO" \
+            --seed "$SEED"
+    fi
+
+    if [ "$DATASET" = "all" ] || [ "$DATASET" = "psm" ]; then
+        echo
+        echo "[export] PSM reconstruction-score artifact"
+        "$PYTHON_BIN" scripts/export_point_artifacts.py \
+            --task ad \
+            --dataset_key PSM \
+            --task_data_config_path data_provider/baseline_anomaly_psm.yaml \
+            --pretrained_weight "$AD_CKPT" \
+            --output_path "$ARTIFACT_DIR/psm_units_original_ad_seed${SEED}.npz" \
+            --d_model 32 \
+            --dropout 0.0 \
+            --batch_size "$BATCH_SIZE" \
+            --anomaly_ratio "$ANOMALY_RATIO" \
+            --seed "$SEED"
+    fi
+}
+
 run_forecast() {
     need_file "$FORECAST_CKPT"
     check_forecast_data
@@ -122,6 +202,8 @@ run_forecast() {
         --pretrained_weight "$FORECAST_CKPT" \
         --checkpoints "$OUTPUT_DIR" \
         --task_data_config_path "$config"
+
+    export_forecast_artifacts
 }
 
 run_ad() {
@@ -159,6 +241,8 @@ run_ad() {
         --checkpoints "$OUTPUT_DIR" \
         --anomaly_ratio "$ANOMALY_RATIO" \
         --task_data_config_path "$config"
+
+    export_ad_artifacts
 }
 
 case "$TARGET" in
@@ -191,3 +275,6 @@ esac
 
 echo
 echo "[done] Point baseline run finished. Logs are under $OUTPUT_DIR/logs"
+if [ "$EXPORT_ARTIFACTS" = "1" ]; then
+    echo "[done] Exported .npz artifacts are under $ARTIFACT_DIR"
+fi
