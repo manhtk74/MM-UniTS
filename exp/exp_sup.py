@@ -96,6 +96,13 @@ def read_task_data_config(config_path):
     return task_dataset_config
 
 
+def load_checkpoint(path):
+    try:
+        return torch.load(path, map_location='cpu', weights_only=False)
+    except TypeError:
+        return torch.load(path, map_location='cpu')
+
+
 def get_task_data_config_list(task_data_config, default_batch_size=None):
     task_data_config_list = []
 
@@ -282,14 +289,13 @@ class Exp_All_Task(object):
             print('loading pretrained model:',
                   pretrain_weight_path, folder=self.path)
             if 'pretrain_checkpoint.pth' in pretrain_weight_path:
-                state_dict = torch.load(
-                    pretrain_weight_path, map_location='cpu')['student']
+                state_dict = load_checkpoint(pretrain_weight_path)['student']
                 ckpt = {}
                 for k, v in state_dict.items():
                     if not ('cls_prompts' in k):
                         ckpt[k] = v
             else:
-                ckpt = torch.load(pretrain_weight_path, map_location='cpu')
+                ckpt = load_checkpoint(pretrain_weight_path)
             msg = self.model.load_state_dict(ckpt, strict=False)
             print(msg, folder=self.path)
 
@@ -541,14 +547,13 @@ class Exp_All_Task(object):
                 print('loading pretrained model:',
                       pretrain_weight_path, folder=self.path)
                 if 'pretrain_checkpoint.pth' in pretrain_weight_path:
-                    state_dict = torch.load(
-                        pretrain_weight_path, map_location='cpu')['student']
+                    state_dict = load_checkpoint(pretrain_weight_path)['student']
                     ckpt = {}
                     for k, v in state_dict.items():
                         if not ('cls_prompts' in k):
                             ckpt[k] = v
                 else:
-                    ckpt = torch.load(pretrain_weight_path, map_location='cpu')
+                    ckpt = load_checkpoint(pretrain_weight_path)
                 msg = self.model.load_state_dict(ckpt, strict=False)
                 print(msg)
             else:
