@@ -8,8 +8,8 @@ EXP_NAME="${EXP_NAME:-mindts_anomaly_prompt}"
 PROJECT_NAME="${PROJECT_NAME:-mindts_anomaly_prompt}"
 WANDB_MODE="${WANDB_MODE:-disabled}"
 PROMPT_EPOCHS="${PROMPT_EPOCHS:-5}"
-BATCH_SIZE="${BATCH_SIZE:-16}"
-ACC_IT="${ACC_IT:-4}"
+BATCH_SIZE="${BATCH_SIZE:-32}"
+ACC_IT="${ACC_IT:-8}"
 CONFIG_PATH="${CONFIG_PATH:-data_provider/custom_mindts_anomaly.yaml}"
 CKPT_PATH="${CKPT_PATH:-./checkpoints/units_x32_pretrain_checkpoint.pth}"
 D_MODEL="${D_MODEL:-}"
@@ -24,7 +24,7 @@ if [[ -z "$D_MODEL" ]]; then
     D_MODEL=64
   fi
 fi
-SUBSAMPLE_PCT="${SUBSAMPLE_PCT:-0.05}"
+SUBSAMPLE_PCT="${SUBSAMPLE_PCT:-0.20}"
 ANOMALY_RATIO="${ANOMALY_RATIO:-11.25}"
 PATCH_LEN="${PATCH_LEN:-6}"
 STRIDE="${STRIDE:-6}"
