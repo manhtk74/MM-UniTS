@@ -114,13 +114,14 @@ def build_args(cli_args):
 
 
 def build_config(dataset_name, enc_in, seq_len):
+    dataset_key = f"MindTS_{dataset_name}"
     return [
         [
             dataset_name,
             {
                 "task_name": "anomaly_detection",
                 "dataset_name": dataset_name,
-                "dataset": dataset_name,
+                "dataset": dataset_key,
                 "data": dataset_name,
                 "root_path": "",
                 "seq_len": seq_len,
@@ -146,6 +147,20 @@ def normalize_state_dict(state):
     return {k.replace("module.", "", 1): v for k, v in state.items()}
 
 
+def compatible_state_dict(model, state):
+    current = model.state_dict()
+    compatible = {}
+    skipped = []
+    for key, value in state.items():
+        if key not in current:
+            continue
+        if current[key].shape != value.shape:
+            skipped.append((key, tuple(value.shape), tuple(current[key].shape)))
+            continue
+        compatible[key] = value
+    return compatible, skipped
+
+
 def load_pretrained(model, checkpoint_path, device):
     if checkpoint_path is None:
         return None
@@ -156,8 +171,10 @@ def load_pretrained(model, checkpoint_path, device):
         state = torch.load(checkpoint_path, map_location=device, weights_only=False)
     except TypeError:
         state = torch.load(checkpoint_path, map_location=device)
-    msg = model.load_state_dict(normalize_state_dict(state), strict=False)
-    return msg
+    state = normalize_state_dict(state)
+    state, skipped = compatible_state_dict(model, state)
+    msg = model.load_state_dict(state, strict=False)
+    return {"load_msg": msg, "skipped_size_mismatch": skipped}
 
 
 def make_train_loader(train_data, seq_len, batch_size, seed, subsample_pct):
@@ -338,7 +355,11 @@ def run_dataset(dataset_name, cli_args, metrics):
     model = UniTSModel(model_args, configs).to(cli_args.device)
     load_msg = load_pretrained(model, cli_args.checkpoint, cli_args.device) if cli_args.checkpoint else None
     if load_msg is not None:
-        print(f"loaded checkpoint: {load_msg}")
+        skipped = load_msg["skipped_size_mismatch"]
+        print(f"loaded checkpoint: {load_msg['load_msg']}")
+        if skipped:
+            preview = ", ".join(item[0] for item in skipped[:5])
+            print(f"skipped {len(skipped)} size-mismatched tensors: {preview}")
 
     train_loader = make_train_loader(
         train_x,
