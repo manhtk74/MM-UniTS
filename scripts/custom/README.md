@@ -97,7 +97,7 @@ bash scripts/custom/run_prompt_anomaly_mindts.sh
 ```
 
 Default config: `data_provider/custom_mindts_anomaly.yaml`.
-This MindTS anomaly-only setting uses `seq_len=24` in the YAML and `patch_len=6`, `stride=6` in `scripts/custom/run_prompt_anomaly_mindts.sh` to stay closer to the MindTS benchmark scripts.
+This MindTS anomaly-only setting uses `seq_len=24` in the YAML and defaults to `patch_len=16`, `stride=16` in the multimodal scripts so the patch embedding and reconstruction head match the released UniTS `units_x*_pretrain_checkpoint.pth` weights. If you override this to `patch_len=6`, use a checkpoint pretrained with patch length 6 or unfreeze/train the patch embedding and reconstruction head.
 
 The six prepared MindTS anomaly datasets average about 11.25 percent anomaly labels, so `ANOMALY_RATIO=11.25` is a better first global setting than UniTS' default `1.0`. For single-dataset runs, use the ratio in `dataset/MindTS_AD/<Domain>/metadata.json`.
 
@@ -111,7 +111,7 @@ CKPT_PATH=./checkpoints/units_x32_pretrain_checkpoint.pth \
 bash scripts/custom/run_zeroshot_anomaly_mindts.sh
 ```
 
-This runs `run.py --is_training 0`, so it loads the checkpoint and evaluates directly without prompt tuning or finetuning. It uses the same MindTS-like anomaly setting as above: `seq_len=24`, `patch_len=6`, `stride=6`.
+This runs `run.py --is_training 0`, so it loads the checkpoint and evaluates directly without prompt tuning or finetuning. Use the same patch length/stride as the checkpoint you load; the released UniTS checkpoints use patch length 16.
 
 ## Optional local pretrain
 

@@ -27,8 +27,8 @@ if [[ -z "$D_MODEL" ]]; then
 fi
 SUBSAMPLE_PCT="${SUBSAMPLE_PCT:-0.20}"
 ANOMALY_RATIO="${ANOMALY_RATIO:-11.25}"
-PATCH_LEN="${PATCH_LEN:-6}"
-STRIDE="${STRIDE:-6}"
+PATCH_LEN="${PATCH_LEN:-16}"
+STRIDE="${STRIDE:-16}"
 PORT="${PORT:-$((RANDOM % 9000 + 1000))}"
 
 torchrun --nnodes 1 --nproc-per-node 1 --master_port "$PORT" run.py \
