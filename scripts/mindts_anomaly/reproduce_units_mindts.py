@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
+from sklearn.metrics import precision_recall_fscore_support
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, Dataset, Subset
 
@@ -29,12 +30,12 @@ DEFAULT_DATASETS = ["Weather", "Energy", "Environment", "KR", "EWJ", "MDT"]
 DEFAULT_RATIOS = [0.1, 0.5, 1.0, 2.0, 3.0, 5.0, 10.0, 15.0, 20.0, 25.0]
 
 PAPER_UNITS_TABLE1 = {
-    "Weather": {"Aff-F": 76.17, "V-PR": 44.35, "V-ROC": 75.08},
-    "Energy": {"Aff-F": 63.84, "V-PR": 31.04, "V-ROC": 51.15},
-    "Environment": {"Aff-F": 83.06, "V-PR": 50.24, "V-ROC": 92.03},
-    "KR": {"Aff-F": 82.24, "V-PR": 43.32, "V-ROC": 73.93},
-    "EWJ": {"Aff-F": 77.61, "V-PR": 39.32, "V-ROC": 73.91},
-    "MDT": {"Aff-F": 75.57, "V-PR": 37.61, "V-ROC": 58.67},
+    "Weather": {"Precision": 35.88, "Recall": 82.46, "F1": 50.00, "Aff-F": 76.17, "V-PR": 44.35, "V-ROC": 75.08},
+    "Energy": {"Precision": 20.20, "Recall": 73.21, "F1": 31.66, "Aff-F": 63.84, "V-PR": 31.04, "V-ROC": 51.15},
+    "Environment": {"Precision": 35.96, "Recall": 83.33, "F1": 50.24, "Aff-F": 83.06, "V-PR": 50.24, "V-ROC": 92.03},
+    "KR": {"Precision": 30.23, "Recall": 79.79, "F1": 43.84, "Aff-F": 82.24, "V-PR": 43.32, "V-ROC": 73.93},
+    "EWJ": {"Precision": 26.95, "Recall": 71.70, "F1": 39.18, "Aff-F": 77.61, "V-PR": 39.32, "V-ROC": 73.91},
+    "MDT": {"Precision": 44.19, "Recall": 62.30, "F1": 51.70, "Aff-F": 75.57, "V-PR": 37.61, "V-ROC": 58.67},
 }
 
 
@@ -328,6 +329,12 @@ def evaluate_with_mindts_metrics(labels, scores, ratios, train_scores, threshold
     for ratio in ratios:
         threshold = np.percentile(combined, 100.0 - ratio)
         pred = pad_to_length((scores > threshold).astype(float), len(labels))
+        precision, recall, f1, _ = precision_recall_fscore_support(
+            labels.astype(int),
+            pred.astype(int),
+            average="binary",
+            zero_division=0,
+        )
         aff_f = np.nan_to_num(affiliation_f(labels, pred, scores) * 100.0, nan=0.0)
         v_pr = np.nan_to_num(vus_pr(labels, pred, scores) * 100.0, nan=0.0)
         v_roc = np.nan_to_num(vus_roc(labels, pred, scores) * 100.0, nan=0.0)
@@ -335,6 +342,9 @@ def evaluate_with_mindts_metrics(labels, scores, ratios, train_scores, threshold
             {
                 "ratio": ratio,
                 "threshold": threshold,
+                "Precision": precision * 100.0,
+                "Recall": recall * 100.0,
+                "F1": f1 * 100.0,
                 "Aff-F": aff_f,
                 "V-PR": v_pr,
                 "V-ROC": v_roc,
@@ -397,18 +407,23 @@ def run_dataset(dataset_name, cli_args, metrics):
     best = max(metric_rows, key=lambda row: np.nan_to_num(row["Aff-F"], nan=-1.0))
     paper = PAPER_UNITS_TABLE1.get(dataset_name, {})
     print(
-        "best_ratio={ratio} Aff-F={Aff-F:.2f} V-PR={V-PR:.2f} V-ROC={V-ROC:.2f}".format(
+        "best_ratio={ratio} P={Precision:.2f} R={Recall:.2f} F1={F1:.2f} "
+        "Aff-F={Aff-F:.2f} V-PR={V-PR:.2f} V-ROC={V-ROC:.2f}".format(
             **best
         )
     )
     if paper:
         print(
-            "paper_table1 UniTS Aff-F={Aff-F:.2f} V-PR={V-PR:.2f} V-ROC={V-ROC:.2f}".format(
+            "paper UniTS P={Precision:.2f} R={Recall:.2f} F1={F1:.2f} "
+            "Aff-F={Aff-F:.2f} V-PR={V-PR:.2f} V-ROC={V-ROC:.2f}".format(
                 **paper
             )
         )
     for row in metric_rows:
         row["dataset"] = dataset_name
+        row["paper_Precision"] = paper.get("Precision", math.nan)
+        row["paper_Recall"] = paper.get("Recall", math.nan)
+        row["paper_F1"] = paper.get("F1", math.nan)
         row["paper_Aff-F"] = paper.get("Aff-F", math.nan)
         row["paper_V-PR"] = paper.get("V-PR", math.nan)
         row["paper_V-ROC"] = paper.get("V-ROC", math.nan)
@@ -458,9 +473,15 @@ def main():
         "dataset",
         "ratio",
         "threshold",
+        "Precision",
+        "Recall",
+        "F1",
         "Aff-F",
         "V-PR",
         "V-ROC",
+        "paper_Precision",
+        "paper_Recall",
+        "paper_F1",
         "paper_Aff-F",
         "paper_V-PR",
         "paper_V-ROC",

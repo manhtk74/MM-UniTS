@@ -12,7 +12,8 @@ on the six MindTS anomaly datasets:
 
 It reads MindTS OTB-format CSV files directly from `../MindTS/dataset/anomaly_detect`,
 trains UniTS with the few-shot anomaly settings used by the UniTS scripts, and evaluates
-with the MindTS metric implementation: `Aff-F`, `V-PR`, and `V-ROC`.
+with the MindTS metric implementation. The output includes point-wise `Precision`,
+`Recall`, `F1`, plus `Aff-F`, `V-PR`, and `V-ROC`.
 
 ## Kaggle layout
 
@@ -35,6 +36,12 @@ The script writes:
 results/mindts_units_anomaly.csv
 ```
 
+Each row is one dataset and anomaly-ratio threshold, with columns:
+
+```bash
+dataset, ratio, threshold, Precision, Recall, F1, Aff-F, V-PR, V-ROC
+```
+
 ## Checkpoint
 
 For the paper-like setting, put the UniTS x32 pretrained checkpoint here:
@@ -51,14 +58,14 @@ back to random initialization and should not be compared directly with the paper
 The runner prints the MindTS paper's UniTS Table 1 values next to each reproduced
 dataset result:
 
-| Dataset | Aff-F | V-PR | V-ROC |
-| --- | ---: | ---: | ---: |
-| Weather | 76.17 | 44.35 | 75.08 |
-| Energy | 63.84 | 31.04 | 51.15 |
-| Environment | 83.06 | 50.24 | 92.03 |
-| KR | 82.24 | 43.32 | 73.93 |
-| EWJ | 77.61 | 39.32 | 73.91 |
-| MDT | 75.57 | 37.61 | 58.67 |
+| Dataset | Precision | Recall | F1 | Aff-F | V-PR | V-ROC |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Weather | 35.88 | 82.46 | 50.00 | 76.17 | 44.35 | 75.08 |
+| Energy | 20.20 | 73.21 | 31.66 | 63.84 | 31.04 | 51.15 |
+| Environment | 35.96 | 83.33 | 50.24 | 83.06 | 50.24 | 92.03 |
+| KR | 30.23 | 79.79 | 43.84 | 82.24 | 43.32 | 73.93 |
+| EWJ | 26.95 | 71.70 | 39.18 | 77.61 | 39.32 | 73.91 |
+| MDT | 44.19 | 62.30 | 51.70 | 75.57 | 37.61 | 58.67 |
 
 ## Useful overrides
 
