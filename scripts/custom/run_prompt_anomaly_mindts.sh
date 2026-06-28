@@ -4,13 +4,13 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 MODEL_NAME="${MODEL_NAME:-UniTS}"
-EXP_NAME="${EXP_NAME:-custom_all_prompt}"
-PROJECT_NAME="${PROJECT_NAME:-custom_all_prompt}"
+EXP_NAME="${EXP_NAME:-mindts_anomaly_prompt}"
+PROJECT_NAME="${PROJECT_NAME:-mindts_anomaly_prompt}"
 WANDB_MODE="${WANDB_MODE:-disabled}"
 PROMPT_EPOCHS="${PROMPT_EPOCHS:-5}"
 BATCH_SIZE="${BATCH_SIZE:-16}"
 ACC_IT="${ACC_IT:-4}"
-CONFIG_PATH="${CONFIG_PATH:-data_provider/custom_all_prompt.yaml}"
+CONFIG_PATH="${CONFIG_PATH:-data_provider/custom_mindts_anomaly.yaml}"
 CKPT_PATH="${CKPT_PATH:-./newcheckpoints/units_x64_pretrain_checkpoint.pth}"
 D_MODEL="${D_MODEL:-}"
 if [[ -z "$D_MODEL" ]]; then
@@ -26,6 +26,8 @@ if [[ -z "$D_MODEL" ]]; then
 fi
 SUBSAMPLE_PCT="${SUBSAMPLE_PCT:-0.05}"
 ANOMALY_RATIO="${ANOMALY_RATIO:-11.25}"
+PATCH_LEN="${PATCH_LEN:-6}"
+STRIDE="${STRIDE:-6}"
 PORT="${PORT:-$((RANDOM % 9000 + 1000))}"
 
 torchrun --nnodes 1 --nproc-per-node 1 --master_port "$PORT" run.py \
@@ -36,8 +38,8 @@ torchrun --nnodes 1 --nproc-per-node 1 --master_port "$PORT" run.py \
   --pretrained_weight "$CKPT_PATH" \
   --model "$MODEL_NAME" \
   --prompt_num 10 \
-  --patch_len 16 \
-  --stride 16 \
+  --patch_len "$PATCH_LEN" \
+  --stride "$STRIDE" \
   --e_layers 3 \
   --d_model "$D_MODEL" \
   --des Exp \

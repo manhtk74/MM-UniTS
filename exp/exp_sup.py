@@ -154,6 +154,22 @@ def init_and_merge_datasets(data_loader_list):
     return dataloader, train_steps
 
 
+def filter_checkpoint_by_shape(model, ckpt):
+    model_state = model.state_dict()
+    filtered = {}
+    skipped = []
+    for k, v in ckpt.items():
+        if k in model_state and hasattr(v, "shape") and model_state[k].shape != v.shape:
+            skipped.append((k, tuple(v.shape), tuple(model_state[k].shape)))
+            continue
+        filtered[k] = v
+    if skipped:
+        print("Skipped checkpoint keys with mismatched shapes:")
+        for k, ckpt_shape, model_shape in skipped:
+            print(f"  {k}: checkpoint {ckpt_shape} -> model {model_shape}")
+    return filtered
+
+
 class Exp_All_Task(object):
     def __init__(self, args):
         super(Exp_All_Task, self).__init__()
@@ -296,6 +312,7 @@ class Exp_All_Task(object):
                         ckpt[k] = v
             else:
                 ckpt = load_checkpoint(pretrain_weight_path)
+            ckpt = filter_checkpoint_by_shape(self.model, ckpt)
             msg = self.model.load_state_dict(ckpt, strict=False)
             print(msg, folder=self.path)
 
@@ -554,6 +571,7 @@ class Exp_All_Task(object):
                             ckpt[k] = v
                 else:
                     ckpt = load_checkpoint(pretrain_weight_path)
+                ckpt = filter_checkpoint_by_shape(self.model, ckpt)
                 msg = self.model.load_state_dict(ckpt, strict=False)
                 print(msg)
             else:

@@ -82,6 +82,7 @@ bash scripts/custom/run_prompt_anomaly_mindts.sh
 ```
 
 Default config: `data_provider/custom_mindts_anomaly.yaml`.
+This MindTS anomaly-only setting uses `seq_len=24` in the YAML and `patch_len=6`, `stride=6` in `scripts/custom/run_prompt_anomaly_mindts.sh` to stay closer to the MindTS benchmark scripts.
 
 The six prepared MindTS anomaly datasets average about 11.25 percent anomaly labels, so `ANOMALY_RATIO=11.25` is a better first global setting than UniTS' default `1.0`. For single-dataset runs, use the ratio in `dataset/MindTS_AD/<Domain>/metadata.json`.
 

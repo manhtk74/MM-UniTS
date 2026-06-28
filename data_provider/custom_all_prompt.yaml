@@ -545,7 +545,7 @@ task_dataset:
   #   dataset: MindTS_EWJ
   #   data: NPY_AD
   #   root_path: ./dataset/MindTS_AD/EWJ/
-  #   seq_len: 96
+  #   seq_len: 24
   #   label_len: 0
   #   pred_len: 0
   #   features: M
@@ -560,7 +560,7 @@ task_dataset:
   #   dataset: MindTS_Energy
   #   data: NPY_AD
   #   root_path: ./dataset/MindTS_AD/Energy/
-  #   seq_len: 96
+  #   seq_len: 24
   #   label_len: 0
   #   pred_len: 0
   #   features: M
@@ -575,7 +575,7 @@ task_dataset:
   #   dataset: MindTS_Environment
   #   data: NPY_AD
   #   root_path: ./dataset/MindTS_AD/Environment/
-  #   seq_len: 96
+  #   seq_len: 24
   #   label_len: 0
   #   pred_len: 0
   #   features: M
@@ -590,7 +590,7 @@ task_dataset:
   #   dataset: MindTS_KR
   #   data: NPY_AD
   #   root_path: ./dataset/MindTS_AD/KR/
-  #   seq_len: 96
+  #   seq_len: 24
   #   label_len: 0
   #   pred_len: 0
   #   features: M
@@ -605,7 +605,7 @@ task_dataset:
   #   dataset: MindTS_MDT
   #   data: NPY_AD
   #   root_path: ./dataset/MindTS_AD/MDT/
-  #   seq_len: 96
+  #   seq_len: 24
   #   label_len: 0
   #   pred_len: 0
   #   features: M
@@ -620,7 +620,7 @@ task_dataset:
   #   dataset: MindTS_Weather
   #   data: NPY_AD
   #   root_path: ./dataset/MindTS_AD/Weather/
-  #   seq_len: 96
+  #   seq_len: 24
   #   label_len: 0
   #   pred_len: 0
   #   features: M
