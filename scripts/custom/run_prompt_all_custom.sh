@@ -11,7 +11,7 @@ PROMPT_EPOCHS="${PROMPT_EPOCHS:-5}"
 BATCH_SIZE="${BATCH_SIZE:-16}"
 ACC_IT="${ACC_IT:-4}"
 CONFIG_PATH="${CONFIG_PATH:-data_provider/custom_all_prompt.yaml}"
-CKPT_PATH="${CKPT_PATH:-./newcheckpoints/units_x64_pretrain_checkpoint.pth}"
+CKPT_PATH="${CKPT_PATH:-./checkpoints/units_x64_pretrain_checkpoint.pth}"
 D_MODEL="${D_MODEL:-}"
 if [[ -z "$D_MODEL" ]]; then
   if [[ "$CKPT_PATH" == *"x128"* ]]; then
