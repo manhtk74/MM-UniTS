@@ -6,5 +6,24 @@
   "test_timesteps": 546,
   "channels": 1,
   "test_anomalies": 61,
-  "anomaly_ratio_percent": 11.172161102294922
+  "anomaly_ratio_percent": 11.172161102294922,
+  "text": {
+    "available": true,
+    "source": "D:\\Foundation_TS\\dataset\\MindTS\\dataset\\anomaly_detect\\data\\MDT_text.csv",
+    "train_csv": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\MDT\\train_text.csv",
+    "test_csv": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\MDT\\test_text.csv",
+    "train_jsonl": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\MDT\\train_text.jsonl",
+    "test_jsonl": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\MDT\\test_text.jsonl",
+    "text_channels": [
+      "channel1"
+    ],
+    "train_text_rows": 2186,
+    "test_text_rows": 546,
+    "train_jsonl_records": 2186,
+    "test_jsonl_records": 546,
+    "missing_train_text_timesteps": 0,
+    "missing_test_text_timesteps": 0,
+    "empty_train_text_timesteps": 1041,
+    "empty_test_text_timesteps": 72
+  }
 }

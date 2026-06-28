@@ -196,6 +196,7 @@ def clean_mindts_ad_domain(repo_root, domain, out_root, meta):
     np.save(out_dir / "test_label.npy", test_label)
 
     anomaly_ratio = float(test_label.mean() * 100.0) if len(test_label) else 0.0
+    text_details = clean_mindts_text_domain(repo_root, domain, out_dir, pivot.index, train_len)
     details = {
         "domain": domain,
         "source": str(src),
@@ -205,10 +206,105 @@ def clean_mindts_ad_domain(repo_root, domain, out_root, meta):
         "channels": int(train.shape[1]),
         "test_anomalies": int(test_label.sum()),
         "anomaly_ratio_percent": anomaly_ratio,
+        "text": text_details,
     }
     with open(out_dir / "metadata.json", "w", encoding="utf-8") as f:
-        json.dump(details, f, indent=2)
+        json.dump(details, f, indent=2, ensure_ascii=False)
     return details
+
+
+def clean_text_value(value):
+    if pd.isna(value):
+        return ""
+    value = str(value).strip()
+    if value == ".":
+        return ""
+    return value
+
+
+def write_text_jsonl(path, dates, grouped_text):
+    with open(path, "w", encoding="utf-8") as f:
+        for date in dates:
+            texts = grouped_text.get(int(date), {})
+            non_empty = [text for text in texts.values() if text]
+            record = {
+                "date": int(date),
+                "text": " ".join(non_empty),
+                "texts": texts,
+            }
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def clean_mindts_text_domain(repo_root, domain, out_dir, aligned_dates, train_len):
+    src = repo_root / "dataset" / "MindTS" / "dataset" / "anomaly_detect" / "data" / f"{domain}_text.csv"
+    train_csv = out_dir / "train_text.csv"
+    test_csv = out_dir / "test_text.csv"
+    train_jsonl = out_dir / "train_text.jsonl"
+    test_jsonl = out_dir / "test_text.jsonl"
+
+    if not src.exists():
+        return {
+            "available": False,
+            "source": str(src),
+        }
+
+    df = pd.read_csv(src)
+    required = {"date", "data", "cols"}
+    if not required.issubset(df.columns):
+        raise ValueError(f"{src} must have columns {sorted(required)}")
+
+    df = df[["date", "data", "cols"]].copy()
+    df["date"] = pd.to_numeric(df["date"], errors="coerce")
+    df = df.dropna(subset=["date"])
+    df["date"] = df["date"].astype(int)
+    df["cols"] = df["cols"].fillna("text").astype(str).str.strip()
+    df["data"] = df["data"].map(clean_text_value)
+
+    aligned_dates = [int(date) for date in aligned_dates]
+    aligned_set = set(aligned_dates)
+    df = df[df["date"].isin(aligned_set)].copy()
+    df = df.sort_values(["date", "cols"])
+
+    train_dates = aligned_dates[:train_len]
+    test_dates = aligned_dates[train_len:]
+    train_set = set(train_dates)
+    test_set = set(test_dates)
+
+    train_text = df[df["date"].isin(train_set)].copy()
+    test_text = df[df["date"].isin(test_set)].copy()
+    train_text.to_csv(train_csv, index=False)
+    test_text.to_csv(test_csv, index=False)
+
+    grouped_text = {}
+    for _, row in df.iterrows():
+        date = int(row["date"])
+        grouped_text.setdefault(date, {})[str(row["cols"])] = str(row["data"])
+
+    write_text_jsonl(train_jsonl, train_dates, grouped_text)
+    write_text_jsonl(test_jsonl, test_dates, grouped_text)
+
+    train_present = {int(date) for date in train_text["date"].unique()}
+    test_present = {int(date) for date in test_text["date"].unique()}
+    text_channels = sorted(df["cols"].dropna().unique().tolist(), key=natural_key)
+    empty_train = sum(not any(text for text in grouped_text.get(date, {}).values()) for date in train_dates)
+    empty_test = sum(not any(text for text in grouped_text.get(date, {}).values()) for date in test_dates)
+    return {
+        "available": True,
+        "source": str(src),
+        "train_csv": str(train_csv),
+        "test_csv": str(test_csv),
+        "train_jsonl": str(train_jsonl),
+        "test_jsonl": str(test_jsonl),
+        "text_channels": text_channels,
+        "train_text_rows": int(len(train_text)),
+        "test_text_rows": int(len(test_text)),
+        "train_jsonl_records": int(len(train_dates)),
+        "test_jsonl_records": int(len(test_dates)),
+        "missing_train_text_timesteps": int(len(train_set - train_present)),
+        "missing_test_text_timesteps": int(len(test_set - test_present)),
+        "empty_train_text_timesteps": int(empty_train),
+        "empty_test_text_timesteps": int(empty_test),
+    }
 
 
 def discover_time_mmd_domains(repo_root):

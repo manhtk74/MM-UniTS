@@ -6,5 +6,24 @@
   "test_timesteps": 2468,
   "channels": 4,
   "test_anomalies": 422,
-  "anomaly_ratio_percent": 17.098865509033203
+  "anomaly_ratio_percent": 17.098865509033203,
+  "text": {
+    "available": true,
+    "source": "D:\\Foundation_TS\\dataset\\MindTS\\dataset\\anomaly_detect\\data\\Weather_text.csv",
+    "train_csv": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\Weather\\train_text.csv",
+    "test_csv": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\Weather\\test_text.csv",
+    "train_jsonl": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\Weather\\train_text.jsonl",
+    "test_jsonl": "D:\\Foundation_TS\\UniTS\\dataset\\MindTS_AD\\Weather\\test_text.jsonl",
+    "text_channels": [
+      "channel1"
+    ],
+    "train_text_rows": 9871,
+    "test_text_rows": 2468,
+    "train_jsonl_records": 9871,
+    "test_jsonl_records": 2468,
+    "missing_train_text_timesteps": 0,
+    "missing_test_text_timesteps": 0,
+    "empty_train_text_timesteps": 0,
+    "empty_test_text_timesteps": 0
+  }
 }

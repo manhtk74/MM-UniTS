@@ -1,0 +1,151 @@
+task_dataset:
+  PRE_TimeMMD_Agriculture:
+    task_name: pretrain_long_term_forecast
+    dataset: TimeMMD_Agriculture
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Agriculture/
+    data_path: Agriculture.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 0
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  PRE_TimeMMD_Climate:
+    task_name: pretrain_long_term_forecast
+    dataset: TimeMMD_Climate
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Climate/
+    data_path: Climate.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 0
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  PRE_TimeMMD_Economy:
+    task_name: pretrain_long_term_forecast
+    dataset: TimeMMD_Economy
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Economy/
+    data_path: Economy.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 0
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  PRE_TimeMMD_Energy:
+    task_name: pretrain_long_term_forecast
+    dataset: TimeMMD_Energy
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Energy/
+    data_path: Energy.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 0
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  PRE_TimeMMD_Environment:
+    task_name: pretrain_long_term_forecast
+    dataset: TimeMMD_Environment
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Environment/
+    data_path: Environment.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 0
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  PRE_TimeMMD_Health_AFR:
+    task_name: pretrain_long_term_forecast
+    dataset: TimeMMD_Health_AFR
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Health_AFR/
+    data_path: Health_AFR.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 0
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  PRE_TimeMMD_Health_US:
+    task_name: pretrain_long_term_forecast
+    dataset: TimeMMD_Health_US
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Health_US/
+    data_path: Health_US.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 0
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  PRE_TimeMMD_Security:
+    task_name: pretrain_long_term_forecast
+    dataset: TimeMMD_Security
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Security/
+    data_path: Security.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 0
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  PRE_TimeMMD_SocialGood:
+    task_name: pretrain_long_term_forecast
+    dataset: TimeMMD_SocialGood
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/SocialGood/
+    data_path: SocialGood.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 0
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+
+  PRE_TimeMMD_Traffic:
+    task_name: pretrain_long_term_forecast
+    dataset: TimeMMD_Traffic
+    data: custom
+    embed: timeF
+    root_path: ./dataset/TimeMMD/Traffic/
+    data_path: Traffic.csv
+    features: S
+    seq_len: 96
+    label_len: 48
+    pred_len: 0
+    enc_in: 1
+    dec_in: 1
+    c_out: 1
+

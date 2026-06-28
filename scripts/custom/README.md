@@ -19,6 +19,10 @@ Outputs:
 - `dataset/MindTS_AD/<Domain>/train.npy`
 - `dataset/MindTS_AD/<Domain>/test.npy`
 - `dataset/MindTS_AD/<Domain>/test_label.npy`
+- `dataset/MindTS_AD/<Domain>/train_text.csv`
+- `dataset/MindTS_AD/<Domain>/test_text.csv`
+- `dataset/MindTS_AD/<Domain>/train_text.jsonl`
+- `dataset/MindTS_AD/<Domain>/test_text.jsonl`
 - `dataset/custom_data_manifest.json`
 - regenerated YAML configs in `data_provider/`
 
@@ -85,6 +89,18 @@ Default config: `data_provider/custom_mindts_anomaly.yaml`.
 This MindTS anomaly-only setting uses `seq_len=24` in the YAML and `patch_len=6`, `stride=6` in `scripts/custom/run_prompt_anomaly_mindts.sh` to stay closer to the MindTS benchmark scripts.
 
 The six prepared MindTS anomaly datasets average about 11.25 percent anomaly labels, so `ANOMALY_RATIO=11.25` is a better first global setting than UniTS' default `1.0`. For single-dataset runs, use the ratio in `dataset/MindTS_AD/<Domain>/metadata.json`.
+
+MindTS text modality files are split with the same temporal boundary as the numeric arrays. The CSV files preserve the source long format (`date,data,cols`), while the JSONL files provide one record per aligned timestep with combined `text` and per-channel `texts`.
+
+## 7. Zero-shot anomaly detection only
+
+```bash
+ANOMALY_RATIO=11.25 \
+CKPT_PATH=./checkpoints/units_x32_pretrain_checkpoint.pth \
+bash scripts/custom/run_zeroshot_anomaly_mindts.sh
+```
+
+This runs `run.py --is_training 0`, so it loads the checkpoint and evaluates directly without prompt tuning or finetuning. It uses the same MindTS-like anomaly setting as above: `seq_len=24`, `patch_len=6`, `stride=6`.
 
 ## Optional local pretrain
 
