@@ -152,7 +152,10 @@ def load_pretrained(model, checkpoint_path, device):
     checkpoint_path = Path(checkpoint_path)
     if not checkpoint_path.exists():
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
-    state = torch.load(checkpoint_path, map_location=device)
+    try:
+        state = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    except TypeError:
+        state = torch.load(checkpoint_path, map_location=device)
     msg = model.load_state_dict(normalize_state_dict(state), strict=False)
     return msg
 
