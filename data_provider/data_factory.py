@@ -77,11 +77,18 @@ def data_provider(args, config, flag, ddp=False):  # args,
 
     if 'anomaly_detection' in config['task_name']:
         drop_last = False
-        data_set = Data(
+        dataset_kwargs = dict(
             root_path=config['root_path'],
             win_size=config['seq_len'],
             flag=flag,
         )
+        if config['data'] == 'NPY_AD':
+            dataset_kwargs.update(
+                use_text=config.get('use_text', False),
+                text_emb_path_train=config.get('text_emb_path_train', 'train_text_emb.npy'),
+                text_emb_path_test=config.get('text_emb_path_test', 'test_text_emb.npy'),
+            )
+        data_set = Data(**dataset_kwargs)
         if args.subsample_pct is not None and flag == "train":
             data_set = random_subset(
                 data_set, args.subsample_pct, args.fix_seed)

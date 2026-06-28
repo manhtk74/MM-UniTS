@@ -569,10 +569,12 @@ class SMDSegLoader(Dataset):
 
 
 class NPYSegLoader(Dataset):
-    def __init__(self, root_path, win_size, step=1, flag="train"):
+    def __init__(self, root_path, win_size, step=1, flag="train", use_text=False,
+                 text_emb_path_train="train_text_emb.npy", text_emb_path_test="test_text_emb.npy"):
         self.flag = flag
         self.step = step
         self.win_size = win_size
+        self.use_text = use_text
         self.scaler = StandardScaler()
 
         train_data = np.load(os.path.join(root_path, "train.npy"))
@@ -592,6 +594,32 @@ class NPYSegLoader(Dataset):
         data_len = len(self.train)
         self.val = self.train[int(data_len * 0.8):]
         self.test_labels = test_labels.reshape(-1)
+        if self.use_text:
+            train_text_path = os.path.join(root_path, text_emb_path_train)
+            test_text_path = os.path.join(root_path, text_emb_path_test)
+            self.train_text = self._load_text_embeddings(
+                train_text_path, len(self.train))
+            self.test_text = self._load_text_embeddings(
+                test_text_path, len(self.test))
+            self.val_text = self.train_text[int(data_len * 0.8):]
+        else:
+            self.train_text = None
+            self.val_text = None
+            self.test_text = None
+
+    def _load_text_embeddings(self, path, expected_len):
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"text embedding file not found: {path}")
+        text_emb = np.load(path)
+        text_emb = np.nan_to_num(text_emb.astype(np.float32))
+        if text_emb.ndim == 1:
+            text_emb = text_emb.reshape(-1, 1)
+        if text_emb.shape[0] != expected_len:
+            raise ValueError(
+                f"text embedding length mismatch for {path}: "
+                f"got {text_emb.shape[0]}, expected {expected_len}"
+            )
+        return text_emb
 
     def __len__(self):
         if self.flag == "train":
@@ -606,16 +634,35 @@ class NPYSegLoader(Dataset):
     def __getitem__(self, index):
         index = index * self.step
         if self.flag == "train":
-            return np.float32(self.train[index:index + self.win_size]), np.float32(self.test_labels[0:self.win_size])
+            x = np.float32(self.train[index:index + self.win_size])
+            y = np.float32(self.test_labels[0:self.win_size])
+            if self.use_text:
+                text = np.float32(self.train_text[index:index + self.win_size])
+                return x, y, text
+            return x, y
         elif self.flag == "val":
-            return np.float32(self.val[index:index + self.win_size]), np.float32(self.test_labels[0:self.win_size])
+            x = np.float32(self.val[index:index + self.win_size])
+            y = np.float32(self.test_labels[0:self.win_size])
+            if self.use_text:
+                text = np.float32(self.val_text[index:index + self.win_size])
+                return x, y, text
+            return x, y
         elif self.flag == "test":
-            return np.float32(self.test[index:index + self.win_size]), np.float32(
-                self.test_labels[index:index + self.win_size])
+            x = np.float32(self.test[index:index + self.win_size])
+            y = np.float32(self.test_labels[index:index + self.win_size])
+            if self.use_text:
+                text = np.float32(self.test_text[index:index + self.win_size])
+                return x, y, text
+            return x, y
         else:
             start = index // self.step * self.win_size
             end = start + self.win_size
-            return np.float32(self.test[start:end]), np.float32(self.test_labels[start:end])
+            x = np.float32(self.test[start:end])
+            y = np.float32(self.test_labels[start:end])
+            if self.use_text:
+                text = np.float32(self.test_text[start:end])
+                return x, y, text
+            return x, y
 
 
 class SWATSegLoader(Dataset):

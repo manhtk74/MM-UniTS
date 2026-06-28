@@ -4,18 +4,15 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 MODEL_NAME="${MODEL_NAME:-UniTS}"
-EXP_NAME="${EXP_NAME:-mindts_anomaly_prompt}"
-PROJECT_NAME="${PROJECT_NAME:-mindts_anomaly_prompt}"
+EXP_NAME="${EXP_NAME:-mindts_anomaly_text_adapter}"
+PROJECT_NAME="${PROJECT_NAME:-mindts_anomaly_text_adapter}"
 WANDB_MODE="${WANDB_MODE:-disabled}"
-PROMPT_EPOCHS="${PROMPT_EPOCHS:-5}"
-USE_TEXT_ADAPTER="${USE_TEXT_ADAPTER:-1}"
+TEXT_WARMUP_EPOCHS="${TEXT_WARMUP_EPOCHS:-5}"
+TEXT_WARMUP_LR="${TEXT_WARMUP_LR:-1e-3}"
 BATCH_SIZE="${BATCH_SIZE:-32}"
 ACC_IT="${ACC_IT:-8}"
 CONFIG_PATH="${CONFIG_PATH:-data_provider/custom_mindts_anomaly.yaml}"
 CKPT_PATH="${CKPT_PATH:-./checkpoints/units_x32_pretrain_checkpoint.pth}"
-if [[ -n "${ADAPTER_CKPT_PATH:-}" ]]; then
-  CKPT_PATH="$ADAPTER_CKPT_PATH"
-fi
 D_MODEL="${D_MODEL:-}"
 if [[ -z "$D_MODEL" ]]; then
   if [[ "$CKPT_PATH" == *"x128"* || "$CKPT_PATH" == *"dm128"* ]]; then
@@ -33,18 +30,6 @@ ANOMALY_RATIO="${ANOMALY_RATIO:-11.25}"
 PATCH_LEN="${PATCH_LEN:-6}"
 STRIDE="${STRIDE:-6}"
 PORT="${PORT:-$((RANDOM % 9000 + 1000))}"
-
-TEXT_ADAPTER_ARGS=()
-if [[ "$USE_TEXT_ADAPTER" == "1" ]]; then
-  TEXT_ADAPTER_ARGS=(
-    --use_text_adapter
-    --text_emb_dim 768
-    --text_adapter_heads 4
-    --text_adapter_dropout 0.0
-    --text_gate_init -4.0
-    --text_gate_type scalar
-  )
-fi
 
 torchrun --nnodes 1 --nproc-per-node 1 --master_port "$PORT" run.py \
   --is_training 1 \
@@ -64,7 +49,15 @@ torchrun --nnodes 1 --nproc-per-node 1 --master_port "$PORT" run.py \
   --learning_rate 1e-3 \
   --weight_decay 1e-4 \
   --train_epochs 0 \
-  --prompt_tune_epoch "$PROMPT_EPOCHS" \
+  --prompt_tune_epoch 0 \
+  --use_text_adapter \
+  --text_emb_dim 768 \
+  --text_adapter_heads 4 \
+  --text_adapter_dropout 0.0 \
+  --text_gate_init -4.0 \
+  --text_gate_type scalar \
+  --text_warmup_epochs "$TEXT_WARMUP_EPOCHS" \
+  --text_warmup_lr "$TEXT_WARMUP_LR" \
   --batch_size "$BATCH_SIZE" \
   --acc_it "$ACC_IT" \
   --dropout 0.0 \
@@ -74,5 +67,4 @@ torchrun --nnodes 1 --nproc-per-node 1 --master_port "$PORT" run.py \
   --anomaly_ratio "$ANOMALY_RATIO" \
   --freq d \
   --num_workers 0 \
-  --task_data_config_path "$CONFIG_PATH" \
-  "${TEXT_ADAPTER_ARGS[@]}"
+  --task_data_config_path "$CONFIG_PATH"

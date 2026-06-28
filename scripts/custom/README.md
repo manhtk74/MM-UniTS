@@ -77,11 +77,22 @@ The TimeMMD forecast config follows the Aurora/TimeMMD benchmark setting:
 
 `Health_US` is used for the benchmark Health domain. `Health_AFR` is prepared when present, but it is not included in the forecast benchmark config because it does not match the Health dataset statistics used in the paper.
 
-## 6. Prompt tune anomaly detection only
+## 6. Multimodal anomaly detection only
+
+First train only the text adapter on top of a UniTS pretrained checkpoint:
 
 ```bash
 ANOMALY_RATIO=11.25 \
 CKPT_PATH=./newcheckpoints/units_x64_pretrain_checkpoint.pth \
+TEXT_WARMUP_EPOCHS=5 \
+bash scripts/custom/run_train_text_adapter_anomaly_mindts.sh
+```
+
+Then prompt tune from the adapter-warmup checkpoint:
+
+```bash
+ANOMALY_RATIO=11.25 \
+ADAPTER_CKPT_PATH=./checkpoints/ALL_task_mindts_anomaly_text_adapter_UniTS_All_ftM_dm64_el3_Exp_0/text_warmup_checkpoint.pth \
 bash scripts/custom/run_prompt_anomaly_mindts.sh
 ```
 

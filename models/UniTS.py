@@ -8,6 +8,7 @@ from torch import nn
 
 from timm.layers import Mlp, DropPath
 from timm.layers.helpers import to_2tuple
+from models.text_adapter import TextCrossAttentionAdapter, TextPatchTokenizer
 
 
 def calculate_unfold_output_length(input_length, size, step):
@@ -684,6 +685,9 @@ class Model(nn.Module):
         self.stride = args.stride
         self.pad = args.stride
         self.patch_len = args.patch_len
+        self.use_text_adapter = getattr(args, "use_text_adapter", False)
+        self.text_patch_tokenizer = None
+        self.text_cross_adapter = None
 
         # input processing
         self.patch_embeddings = PatchEmbedding(
@@ -706,6 +710,31 @@ class Model(nn.Module):
         if pretrain:
             self.pretrain_head = ForecastHead(
                 args.d_model, args.patch_len, args.stride, args.stride, prefix_token_length=1, head_dropout=args.dropout)
+
+        if self.use_text_adapter:
+            text_emb_dim = self._resolve_text_emb_dim(args, configs_list)
+            self.text_patch_tokenizer = TextPatchTokenizer(
+                text_emb_dim=text_emb_dim,
+                d_model=args.d_model,
+                patch_len=args.patch_len,
+                stride=args.stride,
+                dropout=getattr(args, "text_adapter_dropout", 0.0),
+            )
+            self.text_cross_adapter = TextCrossAttentionAdapter(
+                d_model=args.d_model,
+                n_heads=getattr(args, "text_adapter_heads", 4),
+                dropout=getattr(args, "text_adapter_dropout", 0.0),
+                gate_init=getattr(args, "text_gate_init", -4.0),
+                gate_type=getattr(args, "text_gate_type", "scalar"),
+            )
+
+    def _resolve_text_emb_dim(self, args, configs_list):
+        if hasattr(args, "text_emb_dim") and args.text_emb_dim is not None:
+            return args.text_emb_dim
+        for _, config in configs_list:
+            if config.get("use_text") and config.get("text_emb_dim") is not None:
+                return config["text_emb_dim"]
+        return 768
 
     def tokenize(self, x, mask=None):
         # Normalization from Non-stationary Transformer
@@ -861,7 +890,7 @@ class Model(nn.Module):
 
         return x
 
-    def anomaly_detection(self, x, x_mark, task_id):
+    def anomaly_detection(self, x, x_mark, task_id, text_emb=None):
         dataset_name = self.configs_list[task_id][1]['dataset']
         prefix_prompt = self.prompt_tokens[dataset_name]
 
@@ -872,6 +901,7 @@ class Model(nn.Module):
                                 None, None, task_name='anomaly_detection')
         seq_token_len = x.shape[-2]-prefix_prompt.shape[2]
         x = self.backbone(x, prefix_prompt.shape[2], seq_token_len)
+        x = self.fuse_text_after_backbone(x, text_emb, seq_token_len)
 
         x = self.forecast_head(
             x, seq_len+padding, seq_token_len)
@@ -882,6 +912,28 @@ class Model(nn.Module):
         x = x + (means[:, 0, :].unsqueeze(1).repeat(1, x.shape[1], 1))
 
         return x
+
+    def fuse_text_after_backbone(self, x, text_emb, seq_token_len):
+        if not self.use_text_adapter or text_emb is None:
+            return x
+        if self.text_patch_tokenizer is None or self.text_cross_adapter is None:
+            return x
+
+        prompt_tokens = x[:, :, :self.prompt_num]
+        sample_tokens = x[:, :, self.prompt_num:]
+        if sample_tokens.shape[-2] != seq_token_len:
+            raise ValueError(
+                f"sample token length {sample_tokens.shape[-2]} != seq_token_len {seq_token_len}")
+
+        text_emb = text_emb.to(device=x.device, dtype=sample_tokens.dtype)
+        text_tokens, text_mask = self.text_patch_tokenizer(text_emb)
+        if text_tokens.shape[1] != seq_token_len:
+            raise ValueError(
+                f"text token length {text_tokens.shape[1]} != UniTS token length {seq_token_len}")
+
+        sample_tokens = self.text_cross_adapter(
+            sample_tokens, text_tokens, text_mask)
+        return torch.cat((prompt_tokens, sample_tokens), dim=2)
 
     def random_masking(self, x, min_mask_ratio, max_mask_ratio):
         """
@@ -1029,7 +1081,8 @@ class Model(nn.Module):
             return cls_dec_out
 
     def forward(self, x_enc, x_mark_enc, x_dec=None, x_mark_dec=None,
-                mask=None, task_id=None, task_name=None, enable_mask=None):
+                mask=None, task_id=None, task_name=None, enable_mask=None,
+                text_emb=None):
         if task_name == 'long_term_forecast' or task_name == 'short_term_forecast':
             dec_out = self.forecast(x_enc, x_mark_enc, task_id)
             return dec_out  # [B, L, D]
@@ -1038,7 +1091,8 @@ class Model(nn.Module):
                 x_enc, x_mark_enc, mask, task_id)
             return dec_out  # [B, L, D]
         if task_name == 'anomaly_detection':
-            dec_out = self.anomaly_detection(x_enc, x_mark_enc, task_id)
+            dec_out = self.anomaly_detection(
+                x_enc, x_mark_enc, task_id, text_emb=text_emb)
             return dec_out  # [B, L, D]
         if task_name == 'classification':
             dec_out = self.classification(x_enc, x_mark_enc, task_id)

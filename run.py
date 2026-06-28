@@ -91,6 +91,17 @@ if __name__ == '__main__':
     parser.add_argument("--prompt_num", type=int, default=5)
     parser.add_argument('--fix_seed', type=int, default=None, help='seed')
 
+    # multimodal anomaly adapter
+    parser.add_argument("--use_text_adapter", action="store_true", default=False)
+    parser.add_argument("--text_emb_dim", type=int, default=768)
+    parser.add_argument("--text_adapter_heads", type=int, default=4)
+    parser.add_argument("--text_adapter_dropout", type=float, default=0.0)
+    parser.add_argument("--text_gate_init", type=float, default=-4.0)
+    parser.add_argument("--text_gate_type", type=str, default="scalar",
+                        choices=["scalar", "channel"])
+    parser.add_argument("--text_warmup_epochs", type=int, default=0)
+    parser.add_argument("--text_warmup_lr", type=float, default=None)
+
     # task related settings
     # forecasting task
     parser.add_argument('--inverse', action='store_true',
@@ -102,7 +113,7 @@ if __name__ == '__main__':
 
     # anomaly detection task
     parser.add_argument('--anomaly_ratio', type=float,
-                        default=1.0, help='prior anomaly ratio (%)')
+                        default=1.0, help='prior anomaly ratio (%%)')
 
     # zero-shot-forecast-new-length
     parser.add_argument("--offset", type=int, default=0)

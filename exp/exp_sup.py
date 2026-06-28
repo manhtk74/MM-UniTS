@@ -234,9 +234,15 @@ class Exp_All_Task(object):
     def _select_optimizer(self):
         eff_batch_size = self.args.batch_size * self.args.acc_it * get_world_size()
         real_learning_rate = self.args.learning_rate * eff_batch_size / 32
+        text_warmup_lr = getattr(self.args, "text_warmup_lr", None)
+        if text_warmup_lr is None:
+            text_warmup_lr = self.args.learning_rate
+        self.real_text_warmup_lr = text_warmup_lr * eff_batch_size / 32
         self.real_learning_rate = real_learning_rate
         print("base lr: %.2e" % (self.args.learning_rate * 32 / eff_batch_size))
         print("actual lr: %.2e" % real_learning_rate)
+        if getattr(self.args, "text_warmup_epochs", 0) > 0:
+            print("text warmup actual lr: %.2e" % self.real_text_warmup_lr)
 
         print("accumulate grad iterations: %d" % self.args.acc_it)
         print("effective batch size: %d" % eff_batch_size)
@@ -275,19 +281,69 @@ class Exp_All_Task(object):
 
         return criterion_list
 
-    def choose_training_parts(self, prompt_tune=False):
+    def choose_training_parts(self, prompt_tune=False, text_warmup=False):
+        def is_prompt_param(param_name):
+            return (
+                'prompt_token' in param_name or
+                'prompt_tokens' in param_name or
+                'mask_prompt' in param_name or
+                'cls_prompt' in param_name or
+                'mask_token' in param_name or
+                'cls_token' in param_name or
+                'category_token' in param_name
+            )
+
+        def is_text_adapter_param(param_name):
+            return (
+                'text_patch_tokenizer' in param_name or
+                'text_cross_adapter' in param_name
+            )
+
+        trainable_count = 0
         for name, param in self.model.named_parameters():
-            if prompt_tune:
-                if 'prompt_token' in name or 'mask_prompt' in name or 'cls_prompt' in name or 'mask_token' in name or 'cls_token' in name or 'category_token' in name:
+            if text_warmup:
+                if is_text_adapter_param(name):
+                    param.requires_grad = True
+                    print("trainable:", name)
+                else:
+                    param.requires_grad = False
+            elif prompt_tune:
+                if is_prompt_param(name) or is_text_adapter_param(name):
                     param.requires_grad = True
                     print("trainable:", name)
                 else:
                     param.requires_grad = False
             else:
                 param.requires_grad = True
+            if param.requires_grad:
+                trainable_count += param.numel()
 
-        if not prompt_tune:
+        if text_warmup:
+            print("text warmup trainable params: {} M".format(
+                trainable_count/1e6), folder=self.path)
+        elif prompt_tune:
+            print("prompt tuning trainable params: {} M".format(
+                trainable_count/1e6), folder=self.path)
+        else:
             print("all trainable.")
+
+    def _set_optimizer_lr(self, model_optim, lr):
+        for param_group in model_optim.param_groups:
+            if "lr_scale" in param_group:
+                param_group["lr"] = lr * param_group["lr_scale"]
+            else:
+                param_group["lr"] = lr
+        print('Updating learning rate to {}'.format(lr), folder=self.path)
+
+    def _training_stage(self, epoch):
+        text_warmup_epochs = getattr(self.args, "text_warmup_epochs", 0)
+        if epoch < text_warmup_epochs:
+            return 'text_warmup', epoch
+        prompt_start = text_warmup_epochs
+        prompt_end = prompt_start + self.args.prompt_tune_epoch
+        if epoch < prompt_end:
+            return 'prompt_tune', epoch - prompt_start
+        return 'finetune', epoch - prompt_end
 
     def train(self, setting):
         path = os.path.join(self.args.checkpoints, setting)
@@ -340,6 +396,9 @@ class Exp_All_Task(object):
             model_total_params/1e6), folder=self.path)
 
         # Optimizer and Criterion
+        if getattr(self.args, "text_warmup_epochs", 0) > 0 and not getattr(self.args, "use_text_adapter", False):
+            raise ValueError(
+                "text_warmup_epochs > 0 requires --use_text_adapter")
         model_optim = self._select_optimizer()
         criterion_list = self._select_criterion(self.task_data_config_list)
         scaler = NativeScaler()
@@ -351,17 +410,29 @@ class Exp_All_Task(object):
         torch.cuda.synchronize()
         dist.barrier()
 
-        for epoch in range(self.args.train_epochs+self.args.prompt_tune_epoch):
-            adjust_learning_rate(model_optim, epoch,
-                                 self.real_learning_rate, self.args)
-            # Prompt learning
-            if (epoch+1) <= self.args.prompt_tune_epoch:
+        total_epochs = (
+            getattr(self.args, "text_warmup_epochs", 0) +
+            self.args.prompt_tune_epoch +
+            self.args.train_epochs
+        )
+        for epoch in range(total_epochs):
+            stage, stage_epoch = self._training_stage(epoch)
+            print("Training stage: {} epoch: {}".format(
+                stage, stage_epoch + 1), folder=self.path)
+            if stage == 'text_warmup':
+                self._set_optimizer_lr(model_optim, self.real_text_warmup_lr)
+                self.choose_training_parts(text_warmup=True)
+            elif stage == 'prompt_tune':
+                adjust_learning_rate(model_optim, stage_epoch,
+                                     self.real_learning_rate, self.args)
                 self.choose_training_parts(prompt_tune=True)
             else:
+                adjust_learning_rate(model_optim, stage_epoch + self.args.prompt_tune_epoch,
+                                     self.real_learning_rate, self.args)
                 self.choose_training_parts(prompt_tune=False)
 
             train_loss = self.train_one_epoch(
-                model_optim, data_loader_cycle, criterion_list, epoch, train_steps, scaler)
+                model_optim, data_loader_cycle, criterion_list, epoch, train_steps, scaler, stage=stage)
 
             # we report the results of last epoch and not find the best epoch based on val set, since some datasets do not have val set
             avg_cls_acc, avg_forecast_mse, avg_forecast_mae = self.test(
@@ -369,7 +440,10 @@ class Exp_All_Task(object):
 
             # save ckpt
             if is_main_process():
-                if self.args.prompt_tune_epoch >= 1:
+                if stage == 'text_warmup':
+                    torch.save(self.model.state_dict(),
+                               os.path.join(path, 'text_warmup_checkpoint.pth'))
+                elif self.args.prompt_tune_epoch >= 1:
                     torch.save(self.model.state_dict(),
                                os.path.join(path, 'ptune_checkpoint.pth'))
                 else:
@@ -384,7 +458,7 @@ class Exp_All_Task(object):
 
         return self.model
 
-    def train_one_epoch(self, model_optim, data_loader_cycle, criterion_list, epoch, train_steps, scaler):
+    def train_one_epoch(self, model_optim, data_loader_cycle, criterion_list, epoch, train_steps, scaler, stage=None):
         current_device = torch.cuda.current_device()
         train_loss_set = []
         acc_it = self.args.acc_it
@@ -398,6 +472,12 @@ class Exp_All_Task(object):
         for i, (sample_init, task_id) in enumerate(data_loader_cycle):
 
             task_name = self.task_data_config_list[task_id][1]['task_name']
+            if stage == 'text_warmup' and task_name != 'anomaly_detection':
+                continue
+            if stage == 'text_warmup' and len(sample_init) < 3:
+                raise ValueError(
+                    "Text warmup requires anomaly_detection batches with text embeddings. "
+                    "Set use_text: true and provide train/test text embeddings in the dataset config.")
             small_batch_size = self.task_data_config_list[task_id][1]['max_batch']
             if small_batch_size != self.args.batch_size:
                 sample_list = self.split_batch(
@@ -462,6 +542,9 @@ class Exp_All_Task(object):
 
         print("Epoch: {} cost time: {}".format(
             epoch + 1, time.time() - epoch_time), folder=self.path)
+        if len(train_loss_set) == 0:
+            raise ValueError(
+                "No batches were trained in this epoch. Text warmup requires anomaly_detection data with text embeddings.")
         train_loss = np.average(train_loss_set)
         torch.cuda.synchronize()
         dist.barrier()
@@ -537,13 +620,17 @@ class Exp_All_Task(object):
         task_name = config['task_name']
         features = config['features']
 
-        batch_x, _ = this_batch
+        batch_x = this_batch[0]
+        batch_text = this_batch[2] if len(this_batch) > 2 else None
 
         batch_x = batch_x.float().to(self.device_id)
+        if batch_text is not None:
+            batch_text = batch_text.float().to(self.device_id)
 
         with torch.cuda.amp.autocast():
             outputs = model(batch_x, None, None,
-                            None, task_id=task_id, task_name=task_name)
+                            None, task_id=task_id, task_name=task_name,
+                            text_emb=batch_text)
             f_dim = -1 if features == 'MS' else 0
             outputs = outputs[:, :, f_dim:]
             loss = criterion(outputs, batch_x)
@@ -792,11 +879,16 @@ class Exp_All_Task(object):
         self.model.eval()
         # (1) stastic on the train set
         with torch.no_grad():
-            for i, (batch_x, batch_y) in enumerate(train_loader):
+            for i, batch in enumerate(train_loader):
+                batch_x, batch_y = batch[:2]
+                batch_text = batch[2] if len(batch) > 2 else None
                 batch_x = batch_x.float().to(self.device_id)
+                if batch_text is not None:
+                    batch_text = batch_text.float().to(self.device_id)
                 # reconstruction
                 outputs = self.model(
-                    batch_x, None, None, None, task_id=task_id, task_name='anomaly_detection')
+                    batch_x, None, None, None, task_id=task_id,
+                    task_name='anomaly_detection', text_emb=batch_text)
                 # criterion
                 score = torch.mean(anomaly_criterion(batch_x, outputs), dim=-1)
                 score = score.detach().cpu()
@@ -809,11 +901,16 @@ class Exp_All_Task(object):
         # (2) find the threshold
         attens_energy = []
         test_labels = []
-        for i, (batch_x, batch_y) in enumerate(test_loader):
+        for i, batch in enumerate(test_loader):
+            batch_x, batch_y = batch[:2]
+            batch_text = batch[2] if len(batch) > 2 else None
             batch_x = batch_x.float().to(self.device_id)
+            if batch_text is not None:
+                batch_text = batch_text.float().to(self.device_id)
             # reconstruction
             outputs = self.model(batch_x, None, None, None,
-                                 task_id=task_id, task_name='anomaly_detection')
+                                 task_id=task_id, task_name='anomaly_detection',
+                                 text_emb=batch_text)
             # criterion
             score = torch.mean(anomaly_criterion(batch_x, outputs), dim=-1)
             score = score.detach().cpu()
@@ -923,9 +1020,13 @@ class Exp_All_Task(object):
             split_batch_y_mark = split_tensor(batch_y_mark, small_batch_size)
             return list(zip(split_batch_x, split_batch_y, split_batch_x_mark, split_batch_y_mark))
         elif task_name == 'anomaly_detection':
-            batch_x, batch_y = batch
+            batch_x, batch_y = batch[:2]
             split_batch_x = split_tensor(batch_x, small_batch_size)
             split_batch_y = split_tensor(batch_y, small_batch_size)
+            if len(batch) > 2:
+                batch_text = batch[2]
+                split_batch_text = split_tensor(batch_text, small_batch_size)
+                return list(zip(split_batch_x, split_batch_y, split_batch_text))
             return list(zip(split_batch_x, split_batch_y))
 
     def memory_check(self, data_loader_cycle, criterion_list, holdout_memory=3):

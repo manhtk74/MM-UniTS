@@ -553,6 +553,9 @@ task_dataset:
     enc_in: 1
     dec_in: 1
     c_out: 1
+    use_text: true
+    text_emb_path_train: train_text_emb.npy
+    text_emb_path_test: test_text_emb.npy
 
   AD_MindTS_Energy:
     task_name: anomaly_detection
@@ -568,6 +571,9 @@ task_dataset:
     enc_in: 9
     dec_in: 9
     c_out: 9
+    use_text: true
+    text_emb_path_train: train_text_emb.npy
+    text_emb_path_test: test_text_emb.npy
 
   AD_MindTS_Environment:
     task_name: anomaly_detection
@@ -583,6 +589,9 @@ task_dataset:
     enc_in: 1
     dec_in: 1
     c_out: 1
+    use_text: true
+    text_emb_path_train: train_text_emb.npy
+    text_emb_path_test: test_text_emb.npy
 
   AD_MindTS_KR:
     task_name: anomaly_detection
@@ -598,6 +607,9 @@ task_dataset:
     enc_in: 1
     dec_in: 1
     c_out: 1
+    use_text: true
+    text_emb_path_train: train_text_emb.npy
+    text_emb_path_test: test_text_emb.npy
 
   AD_MindTS_MDT:
     task_name: anomaly_detection
@@ -613,6 +625,9 @@ task_dataset:
     enc_in: 1
     dec_in: 1
     c_out: 1
+    use_text: true
+    text_emb_path_train: train_text_emb.npy
+    text_emb_path_test: test_text_emb.npy
 
   AD_MindTS_Weather:
     task_name: anomaly_detection
@@ -628,4 +643,7 @@ task_dataset:
     enc_in: 4
     dec_in: 4
     c_out: 4
+    use_text: true
+    text_emb_path_train: train_text_emb.npy
+    text_emb_path_test: test_text_emb.npy
 
