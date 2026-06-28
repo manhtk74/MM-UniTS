@@ -6,8 +6,56 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from timm.layers import Mlp, DropPath
-from timm.layers.helpers import to_2tuple
+try:
+    from timm.layers import Mlp, DropPath
+    from timm.layers.helpers import to_2tuple
+except ImportError:
+    def to_2tuple(x):
+        return x if isinstance(x, tuple) else (x, x)
+
+    class DropPath(nn.Module):
+        def __init__(self, drop_prob=0.):
+            super().__init__()
+            self.drop_prob = drop_prob
+
+        def forward(self, x):
+            if self.drop_prob == 0. or not self.training:
+                return x
+            keep_prob = 1 - self.drop_prob
+            shape = (x.shape[0],) + (1,) * (x.ndim - 1)
+            random_tensor = keep_prob + torch.rand(shape, dtype=x.dtype, device=x.device)
+            random_tensor.floor_()
+            return x.div(keep_prob) * random_tensor
+
+    class Mlp(nn.Module):
+        def __init__(
+            self,
+            in_features,
+            hidden_features=None,
+            out_features=None,
+            act_layer=nn.GELU,
+            drop=0.,
+            bias=True,
+            **kwargs,
+        ):
+            super().__init__()
+            out_features = out_features or in_features
+            hidden_features = hidden_features or in_features
+            bias = to_2tuple(bias)
+            drop_probs = to_2tuple(drop)
+            self.fc1 = nn.Linear(in_features, hidden_features, bias=bias[0])
+            self.act = act_layer()
+            self.drop1 = nn.Dropout(drop_probs[0])
+            self.fc2 = nn.Linear(hidden_features, out_features, bias=bias[1])
+            self.drop2 = nn.Dropout(drop_probs[1])
+
+        def forward(self, x):
+            x = self.fc1(x)
+            x = self.act(x)
+            x = self.drop1(x)
+            x = self.fc2(x)
+            x = self.drop2(x)
+            return x
 
 
 def calculate_unfold_output_length(input_length, size, step):
