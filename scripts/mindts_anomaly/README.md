@@ -30,6 +30,12 @@ Run from the UniTS root:
 bash scripts/mindts_anomaly/run_units_mindts_kaggle.sh
 ```
 
+To launch the full tuning grid:
+
+```bash
+bash scripts/mindts_anomaly/tune_units_mindts_all.sh
+```
+
 The script writes:
 
 ```bash
