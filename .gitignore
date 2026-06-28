@@ -157,5 +157,5 @@ data_loader_all.py
 /scripts/imputation/tmp/
 /utils/self_tools.py
 
-checkpoints
+# checkpoints
 logs
