@@ -5,13 +5,13 @@ set -euo pipefail
 #   bash scripts/mindts_anomaly/tune_units_mindts_all.sh
 #
 # Optional overrides:
-#   MINDTS_ROOT=../MindTS
+#   MINDTS_ROOT=dataset/MindTS
 #   CKPT=newcheckpoints/units_x32_pretrain_checkpoint.pth
 #   DATASETS="Weather Energy Environment KR EWJ MDT"
 #   OUT_DIR=results/tune_units_mindts
 #   FORCE=1
 
-MINDTS_ROOT="${MINDTS_ROOT:-../MindTS}"
+MINDTS_ROOT="${MINDTS_ROOT:-dataset/MindTS}"
 CKPT="${CKPT:-checkpoints/units_x32_pretrain_checkpoint.pth}"
 DATASETS="${DATASETS:-Weather Energy Environment KR EWJ MDT}"
 OUT_DIR="${OUT_DIR:-results/tune_units_mindts}"

@@ -1,12 +1,10 @@
 import argparse
 import csv
-import importlib.util
 import json
 import math
 import os
 import random
 import sys
-import types
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -24,6 +22,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from models.UniTS import Model as UniTSModel
+from utils.mindts_metrics import affiliation_f, vus_pr, vus_roc
 
 
 DEFAULT_DATASETS = ["Weather", "Energy", "Environment", "KR", "EWJ", "MDT"]
@@ -87,8 +86,19 @@ def read_mindts_otb_csv(path):
 
 def load_mindts_dataset(mindts_root, dataset_name):
     csv_name = dataset_name if dataset_name.endswith(".csv") else f"{dataset_name}.csv"
-    data_path = Path(mindts_root) / "dataset" / "anomaly_detect" / "data" / csv_name
-    meta_path = Path(mindts_root) / "dataset" / "anomaly_detect" / "DETECT_META.csv"
+    mindts_root = Path(mindts_root)
+    flat_data_path = mindts_root / csv_name
+    flat_meta_path = mindts_root / "DETECT_META.csv"
+    nested_data_path = mindts_root / "dataset" / "anomaly_detect" / "data" / csv_name
+    nested_meta_path = mindts_root / "dataset" / "anomaly_detect" / "DETECT_META.csv"
+
+    if flat_data_path.exists() and flat_meta_path.exists():
+        data_path = flat_data_path
+        meta_path = flat_meta_path
+    else:
+        data_path = nested_data_path
+        meta_path = nested_meta_path
+
     if not data_path.exists():
         raise FileNotFoundError(f"MindTS data file not found: {data_path}")
     if not meta_path.exists():
@@ -243,83 +253,6 @@ def pad_to_length(values, length):
     return np.pad(values, (0, length - len(values)), mode="constant", constant_values=0)
 
 
-def get_mindts_metrics(mindts_root):
-    if mindts_root is None:
-        return None
-    mindts_root = Path(mindts_root)
-    if str(mindts_root) not in sys.path:
-        sys.path.insert(0, str(mindts_root))
-    try:
-        from ts_benchmark.evaluation.metrics.classification_metrics_label import (
-            VUS_PR,
-            VUS_ROC,
-            affiliation_f,
-        )
-        return affiliation_f, VUS_PR, VUS_ROC
-    except ModuleNotFoundError as exc:
-        print(f"MindTS metric import fallback: {exc}")
-
-    metrics_root = mindts_root / "ts_benchmark" / "evaluation" / "metrics"
-    affiliation_root = metrics_root / "affiliation"
-    pkg_name = "_mindts_affiliation"
-    pkg = types.ModuleType(pkg_name)
-    pkg.__path__ = [str(affiliation_root)]
-    sys.modules[pkg_name] = pkg
-
-    for module_name in [
-        "generics",
-        "affiliation_zone",
-        "integral_interval",
-        "single_ground_truth_event",
-        "metrics",
-    ]:
-        load_module_from_file(
-            f"{pkg_name}.{module_name}",
-            affiliation_root / f"{module_name}.py",
-        )
-
-    vus_module = load_module_from_file("_mindts_vus_metrics", metrics_root / "vus_metrics.py")
-    aff_generics = sys.modules[f"{pkg_name}.generics"]
-    aff_metrics = sys.modules[f"{pkg_name}.metrics"]
-
-    def local_get_list_anomaly(labels):
-        labels = np.asarray(labels, dtype=int)
-        end_pos = np.diff(labels, append=0) < 0
-        lengths = np.diff(np.cumsum(labels)[end_pos], prepend=0)
-        return lengths if len(lengths) > 0 else np.array([1])
-
-    def fallback_affiliation_f(actual, predicted, another=None, **kwargs):
-        events_pred = aff_generics.convert_vector_to_events(predicted)
-        events_label = aff_generics.convert_vector_to_events(actual)
-        result = aff_metrics.pr_from_events(events_pred, events_label, (0, len(predicted)))
-        precision = result["precision"]
-        recall = result["recall"]
-        if math.isnan(precision) or math.isnan(recall):
-            return 0.0
-        denom = precision + recall
-        return 0.0 if denom == 0 else 2 * precision * recall / denom
-
-    def fallback_vus_roc(actual, predicted, another, **kwargs):
-        sliding_window = int(np.median(local_get_list_anomaly(actual)))
-        _, _, _, _, _, _, vus_roc, _ = vus_module.generate_curve(actual, another, 2 * sliding_window)
-        return vus_roc
-
-    def fallback_vus_pr(actual, predicted, another, **kwargs):
-        sliding_window = int(np.median(local_get_list_anomaly(actual)))
-        _, _, _, _, _, _, _, vus_pr = vus_module.generate_curve(actual, another, 2 * sliding_window)
-        return vus_pr
-
-    return fallback_affiliation_f, fallback_vus_pr, fallback_vus_roc
-
-
-def load_module_from_file(name, path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 def evaluate_with_mindts_metrics(labels, scores, ratios, train_scores, threshold_test_scores, metrics):
     affiliation_f, vus_pr, vus_roc = metrics
     combined = np.concatenate([train_scores, threshold_test_scores])
@@ -432,7 +365,7 @@ def run_dataset(dataset_name, cli_args, metrics):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Reproduce UniTS anomaly detection on MindTS datasets.")
-    parser.add_argument("--mindts-root", default=str(ROOT.parent / "MindTS"))
+    parser.add_argument("--mindts-root", default=str(ROOT / "dataset" / "MindTS"), help="Path to the local MindTS dataset folder. The default is UniTS/dataset/MindTS.")
     parser.add_argument("--datasets", nargs="+", default=DEFAULT_DATASETS)
     parser.add_argument("--checkpoint", default=None, help="Path to UniTS pretrained checkpoint, e.g. newcheckpoints/units_x32_pretrain_checkpoint.pth")
     parser.add_argument("--output", default="results/mindts_units_anomaly.csv")
@@ -462,7 +395,7 @@ def main():
     args = parse_args()
     set_seed(args.seed)
     args.device = torch.device(args.device)
-    metrics = get_mindts_metrics(args.mindts_root)
+    metrics = (affiliation_f, vus_pr, vus_roc)
     all_rows = []
     for dataset_name in args.datasets:
         all_rows.extend(run_dataset(dataset_name, args, metrics))

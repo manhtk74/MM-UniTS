@@ -4,14 +4,14 @@ set -euo pipefail
 # Run from the UniTS repository root:
 #   bash scripts/mindts_anomaly/run_units_mindts_kaggle.sh
 #
-# Expected layout:
-#   /kaggle/working/UniTS
-#   /kaggle/working/MindTS
+# Expected dataset layout:
+#   UniTS/dataset/MindTS/DETECT_META.csv
+#   UniTS/dataset/MindTS/Weather.csv
 #
 # Optional checkpoint:
 #   UniTS/newcheckpoints/units_x32_pretrain_checkpoint.pth
 
-MINDTS_ROOT="${MINDTS_ROOT:-../MindTS}"
+MINDTS_ROOT="${MINDTS_ROOT:-dataset/MindTS}"
 CKPT="${CKPT:-checkpoints/units_x32_pretrain_checkpoint.pth}"
 OUT="${OUT:-results/mindts_units_anomaly.csv}"
 
