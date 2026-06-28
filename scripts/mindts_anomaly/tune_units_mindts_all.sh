@@ -12,7 +12,7 @@ set -euo pipefail
 #   FORCE=1
 
 MINDTS_ROOT="${MINDTS_ROOT:-../MindTS}"
-CKPT="${CKPT:-newcheckpoints/units_x32_pretrain_checkpoint.pth}"
+CKPT="${CKPT:-checkpoints/units_x32_pretrain_checkpoint.pth}"
 DATASETS="${DATASETS:-Weather Energy Environment KR EWJ MDT}"
 OUT_DIR="${OUT_DIR:-results/tune_units_mindts}"
 FORCE="${FORCE:-0}"
