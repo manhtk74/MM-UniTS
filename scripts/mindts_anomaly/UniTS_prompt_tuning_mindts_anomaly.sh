@@ -32,7 +32,7 @@ torchrun --nnodes 1 --nproc-per-node=1 --master_port "$random_port" run.py \
   --learning_rate "${LR:-5e-4}" \
   --weight_decay "${WEIGHT_DECAY:-1e-3}" \
   --train_epochs 0 \
-  --prompt_tune_epoch "${PROMPT_EPOCHS:-10}" \
+  --prompt_tune_epoch "${PROMPT_EPOCHS:-5}" \
   --batch_size "${BATCH_SIZE:-32}" \
   --acc_it "${ACC_IT:-4}" \
   --dropout "${DROPOUT:-0}" \
