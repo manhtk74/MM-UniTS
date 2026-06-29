@@ -17,7 +17,7 @@ task_dataset:
     step: 1
     test_step: 24
     score_mode: thre
-    mindts_metrics: true
+    anomaly_metrics: true
     select_metric: Aff-F
 
   Energy:
@@ -38,7 +38,7 @@ task_dataset:
     step: 1
     test_step: 24
     score_mode: thre
-    mindts_metrics: true
+    anomaly_metrics: true
     select_metric: Aff-F
 
   Environment:
@@ -59,7 +59,7 @@ task_dataset:
     step: 1
     test_step: 24
     score_mode: thre
-    mindts_metrics: true
+    anomaly_metrics: true
     select_metric: Aff-F
 
   KR:
@@ -80,7 +80,7 @@ task_dataset:
     step: 1
     test_step: 24
     score_mode: thre
-    mindts_metrics: true
+    anomaly_metrics: true
     select_metric: Aff-F
 
   EWJ:
@@ -101,7 +101,7 @@ task_dataset:
     step: 1
     test_step: 24
     score_mode: thre
-    mindts_metrics: true
+    anomaly_metrics: true
     select_metric: Aff-F
 
   MDT:
@@ -122,5 +122,5 @@ task_dataset:
     step: 1
     test_step: 24
     score_mode: thre
-    mindts_metrics: true
+    anomaly_metrics: true
     select_metric: Aff-F

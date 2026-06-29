@@ -207,7 +207,7 @@ class Exp_All_Task(object):
         if getattr(self.args, 'result_dir', None):
             os.makedirs(self.args.result_dir, exist_ok=True)
             seed = self.args.fix_seed if self.args.fix_seed is not None else 'none'
-            self.result_csv_path = os.path.join(self.args.result_dir, f"mindts_seed{seed}.csv")
+            self.result_csv_path = os.path.join(self.args.result_dir, f"results_seed{seed}.csv")
         self.ori_task_data_config = read_task_data_config(
             self.args.task_data_config_path)
         self.ori_task_data_config_list = get_task_data_config_list(
@@ -700,6 +700,9 @@ class Exp_All_Task(object):
                               data_task_name: f_score})
                 avg_anomaly_f_score.append(f_score)
 
+        n_long_term_forecast = len(avg_long_term_forecast_mse)
+        n_anomaly_detection = len(avg_anomaly_f_score)
+
         avg_long_term_forecast_mse = np.average(avg_long_term_forecast_mse)
         avg_long_term_forecast_mae = np.average(avg_long_term_forecast_mae)
 
@@ -716,8 +719,12 @@ class Exp_All_Task(object):
                        'avg_eval_IMP-mse': avg_imputation_mse, 'avg_eval_IMP-mae': avg_imputation_mae,
                        'avg_eval_Anomaly-f_score': avg_anomaly_f_score})
             if self.compact_log:
-                print("Epoch {:02d}: avg Ano-F1={:.4f}".format(
-                    self.current_epoch, avg_anomaly_f_score), folder=self.path)
+                if n_long_term_forecast > 0:
+                    print("Epoch {:02d}: avg MSE={:.6f} avg MAE={:.6f}".format(
+                        self.current_epoch, avg_long_term_forecast_mse, avg_long_term_forecast_mae), folder=self.path)
+                elif n_anomaly_detection > 0:
+                    print("Epoch {:02d}: avg Ano-F1={:.4f}".format(
+                        self.current_epoch, avg_anomaly_f_score), folder=self.path)
             else:
                 print("Avg score: LF-mse: {}, LF-mae: {}, CLS-acc {}, IMP-mse: {}, IMP-mae: {}, Ano-F: {}".format(avg_long_term_forecast_mse,
                                                                                                                   avg_long_term_forecast_mae, avg_classification_acc, avg_imputation_mse, avg_imputation_mae, avg_anomaly_f_score), folder=self.path)
@@ -774,8 +781,23 @@ class Exp_All_Task(object):
         trues = trues.reshape(-1, trues.shape[-2], trues.shape[-1])
 
         mae, mse, rmse, mape, mspe = metric(preds, trues)
-        print('data_task_name: {} mse:{}, mae:{}'.format(
-            data_task_name, mse, mae), folder=self.path)
+        self.append_result_rows([{
+            'task_name': 'long_term_forecast',
+            'task': data_task_name,
+            'dataset': config.get('dataset_name', config.get('dataset', data_task_name)),
+            'seq_len': config.get('seq_len'),
+            'label_len': config.get('label_len'),
+            'pred_len': config.get('pred_len'),
+            'MSE': mse,
+            'MAE': mae,
+            'is_best': True,
+        }])
+        if self.compact_log:
+            print('{} p={} MSE={:.6f} MAE={:.6f}'.format(
+                config.get('dataset_name', data_task_name), pred_len, mse, mae), folder=self.path)
+        else:
+            print('data_task_name: {} mse:{}, mae:{}'.format(
+                data_task_name, mse, mae), folder=self.path)
         torch.cuda.empty_cache()
         return mse, mae
 
@@ -815,6 +837,46 @@ class Exp_All_Task(object):
             data_task_name, accuracy), folder=self.path)
 
         return accuracy
+
+    def append_result_rows(self, rows):
+        if not self.result_csv_path or not is_main_process() or not rows:
+            return
+        fieldnames = [
+            'seed',
+            'epoch',
+            'model_id',
+            'task_name',
+            'task',
+            'dataset',
+            'seq_len',
+            'label_len',
+            'pred_len',
+            'ratio',
+            'threshold',
+            'Accuracy',
+            'Precision',
+            'Recall',
+            'F1',
+            'Aff-F',
+            'V-PR',
+            'V-ROC',
+            'MSE',
+            'MAE',
+            'is_best',
+        ]
+        file_exists = os.path.exists(self.result_csv_path)
+        with open(self.result_csv_path, 'a', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
+            if not file_exists:
+                writer.writeheader()
+            for row in rows:
+                out = {
+                    'seed': self.args.fix_seed,
+                    'epoch': self.current_epoch,
+                    'model_id': self.args.model_id,
+                }
+                out.update(row)
+                writer.writerow(out)
 
     def test_imputation(self, setting, test_data, test_loader, data_task_name, task_id):
         preds = []
@@ -861,47 +923,6 @@ class Exp_All_Task(object):
         torch.cuda.empty_cache()
         return mse, mae
 
-    def append_mindts_rows(self, data_task_name, rows, best):
-        if not self.result_csv_path or not is_main_process():
-            return
-        fieldnames = [
-            'seed',
-            'epoch',
-            'model_id',
-            'dataset',
-            'ratio',
-            'threshold',
-            'Precision',
-            'Recall',
-            'F1',
-            'Aff-F',
-            'V-PR',
-            'V-ROC',
-            'is_best',
-        ]
-        file_exists = os.path.exists(self.result_csv_path)
-        with open(self.result_csv_path, 'a', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            if not file_exists:
-                writer.writeheader()
-            for row in rows:
-                out = {
-                    'seed': self.args.fix_seed,
-                    'epoch': self.current_epoch,
-                    'model_id': self.args.model_id,
-                    'dataset': data_task_name,
-                    'ratio': row.get('ratio'),
-                    'threshold': row.get('threshold'),
-                    'Precision': row.get('Precision'),
-                    'Recall': row.get('Recall'),
-                    'F1': row.get('F1'),
-                    'Aff-F': row.get('Aff-F'),
-                    'V-PR': row.get('V-PR'),
-                    'V-ROC': row.get('V-ROC'),
-                    'is_best': row is best,
-                }
-                writer.writerow(out)
-
     def test_anomaly_detection(self, setting, test_data, test_loader_set, data_task_name, task_id):
         def collect_scores(loader):
             scores = []
@@ -925,8 +946,8 @@ class Exp_All_Task(object):
         self.model.eval()
         train_energy, _ = collect_scores(train_loader)
 
-        use_mindts_metrics = config.get('mindts_metrics', False)
-        if use_mindts_metrics:
+        use_extended_anomaly_metrics = config.get('anomaly_metrics', config.get('mindts_metrics', False))
+        if use_extended_anomaly_metrics:
             _, eval_dataset = test_data if isinstance(test_data, (list, tuple)) else (None, None)
             score_mode = config.get('score_mode', getattr(self.args, 'anomaly_score_mode', 'thre'))
             final_step = 1 if score_mode == 'overlap' else config['seq_len']
@@ -961,7 +982,7 @@ class Exp_All_Task(object):
         for ratio in ratios:
             threshold = np.percentile(combined_energy, 100 - ratio)
             pred = (test_energy > threshold).astype(int)
-            if use_mindts_metrics:
+            if use_extended_anomaly_metrics:
                 pred = pad_to_length(pred, len(gt)).astype(int)
                 precision, recall, f_score, _ = precision_recall_fscore_support(
                     gt, pred, average='binary', zero_division=0)
@@ -992,10 +1013,17 @@ class Exp_All_Task(object):
                     'F1': f_score,
                 })
 
-        if use_mindts_metrics:
+        if use_extended_anomaly_metrics:
             select_metric = config.get('select_metric', 'Aff-F')
             best = max(rows, key=lambda row: np.nan_to_num(row.get(select_metric, row['F1']), nan=-1.0))
-            self.append_mindts_rows(data_task_name, rows, best)
+            self.append_result_rows([{
+                **row,
+                'task_name': 'anomaly_detection',
+                'task': data_task_name,
+                'dataset': config.get('dataset_name', config.get('dataset', data_task_name)),
+                'seq_len': config.get('seq_len'),
+                'is_best': row is best,
+            } for row in rows])
             line = "{} r={} P={:.2f} R={:.2f} F1={:.2f} Aff-F={:.2f} V-PR={:.2f} V-ROC={:.2f}".format(
                     data_task_name,
                     best['ratio'],
@@ -1015,6 +1043,14 @@ class Exp_All_Task(object):
         print("gt:   ", gt.shape)
         print("Accuracy : {:0.4f}, Precision : {:0.4f}, Recall : {:0.4f}, F-score : {:0.4f} ".format(
             row['Accuracy'], row['Precision'], row['Recall'], row['F1']))
+        self.append_result_rows([{
+            **row,
+            'task_name': 'anomaly_detection',
+            'task': data_task_name,
+            'dataset': config.get('dataset_name', config.get('dataset', data_task_name)),
+            'seq_len': config.get('seq_len'),
+            'is_best': True,
+        }])
 
         return row['F1']
 

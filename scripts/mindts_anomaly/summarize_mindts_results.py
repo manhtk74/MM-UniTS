@@ -33,8 +33,13 @@ def read_results(paths):
 
 
 def best_rows(df, select_metric):
+    if "task_name" in df.columns:
+        df = df[df["task_name"] == "anomaly_detection"].copy()
     if select_metric not in df.columns:
         raise ValueError(f"{select_metric} not found. Columns: {list(df.columns)}")
+    df = df[df[select_metric].notna()].copy()
+    if df.empty:
+        raise ValueError(f"No anomaly rows with metric {select_metric} found.")
     rows = []
     for (seed, dataset), group in df.groupby(["seed", "dataset"], sort=False):
         idx = group[select_metric].astype(float).idxmax()
@@ -68,7 +73,7 @@ def print_summary(summary):
 
 def main():
     parser = argparse.ArgumentParser(description="Summarize UniTS MindTS CSV results.")
-    parser.add_argument("csv", nargs="+", help="CSV files, e.g. results/mindts_prompt/exp/seed_*/mindts_seed*.csv")
+    parser.add_argument("csv", nargs="+", help="CSV files, e.g. results/mindts_anomaly/exp/run/seed_*/results_seed*.csv")
     parser.add_argument("--select-metric", default="Aff-F", help="Metric used to select best epoch/ratio row")
     parser.add_argument("--output", default=None, help="Optional CSV path for best rows")
     parser.add_argument("--summary-output", default=None, help="Optional CSV path for mean/std table")
