@@ -1,5 +1,5 @@
 from data_provider.data_loader import Dataset_ETT_hour, Dataset_ETT_minute, Dataset_Custom, PSMSegLoader, \
-    MSLSegLoader, SMAPSegLoader, SMDSegLoader, SWATSegLoader, UEAloader, GLUONTSDataset
+    MSLSegLoader, SMAPSegLoader, SMDSegLoader, SWATSegLoader, MindTSSegLoader, UEAloader, GLUONTSDataset
 from data_provider.uea import collate_fn
 import torch
 from torch.utils.data import DataLoader, Subset
@@ -17,6 +17,7 @@ data_dict = {
     'SMAP': SMAPSegLoader,
     'SMD': SMDSegLoader,
     'SWAT': SWATSegLoader,
+    'MindTS': MindTSSegLoader,
     'UEA': UEAloader,
     # datasets from gluonts package:
     "gluonts": GLUONTSDataset,
@@ -76,10 +77,21 @@ def data_provider(args, config, flag, ddp=False):  # args,
 
     if 'anomaly_detection' in config['task_name']:
         drop_last = False
+        step = config.get('step', None)
+        if flag == 'test':
+            step = config.get('test_step', step)
+        dataset_kwargs = {
+            'root_path': config['root_path'],
+            'win_size': config['seq_len'],
+            'flag': flag,
+        }
+        if step is not None:
+            dataset_kwargs['step'] = step
+        if config['data'] == 'MindTS':
+            dataset_kwargs['data_path'] = config.get('data_path', f"{config['dataset_name']}.csv")
+            dataset_kwargs['dataset_name'] = config.get('dataset_name')
         data_set = Data(
-            root_path=config['root_path'],
-            win_size=config['seq_len'],
-            flag=flag,
+            **dataset_kwargs
         )
         if args.subsample_pct is not None and flag == "train":
             data_set = random_subset(

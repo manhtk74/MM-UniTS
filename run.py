@@ -103,6 +103,10 @@ if __name__ == '__main__':
     # anomaly detection task
     parser.add_argument('--anomaly_ratio', type=float,
                         default=1.0, help='prior anomaly ratio (%)')
+    parser.add_argument('--anomaly_ratios', type=float, nargs='+',
+                        default=None, help='optional anomaly ratio grid (%) for MindTS-style evaluation')
+    parser.add_argument('--anomaly_score_mode', type=str, default='thre',
+                        choices=['thre', 'overlap'], help='MindTS final scoring mode: non-overlap threshold mode or overlap mode')
 
     # zero-shot-forecast-new-length
     parser.add_argument("--offset", type=int, default=0)

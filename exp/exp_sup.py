@@ -2,6 +2,7 @@ from data_provider.data_factory import data_provider
 from utils.tools import adjust_learning_rate, cal_accuracy, adjustment
 from utils.tools import NativeScalerWithGradNormCount as NativeScaler
 from utils.metrics import metric
+from utils.mindts_metrics import affiliation_f, vus_pr, vus_roc
 from utils.losses import mape_loss, mase_loss, smape_loss
 from utils.dataloader import BalancedDataLoaderIterator
 from utils.layer_decay import param_groups_lrd
@@ -15,6 +16,7 @@ import torch
 import torch.nn as nn
 from torch import optim
 import torch.distributed as dist
+from torch.utils.data import DataLoader
 
 import os
 import time
@@ -139,6 +141,52 @@ def get_loss_by_name(loss_name):
     else:
         print("no loss function found!")
         exit()
+
+
+def torch_load_checkpoint(path, map_location='cpu'):
+    try:
+        return torch.load(path, map_location=map_location, weights_only=False)
+    except TypeError:
+        return torch.load(path, map_location=map_location)
+
+
+def normalize_checkpoint_state(state):
+    if isinstance(state, dict) and 'student' in state:
+        state = state['student']
+    if isinstance(state, dict) and 'model' in state:
+        state = state['model']
+    if not isinstance(state, dict):
+        raise ValueError("Unsupported checkpoint format.")
+    return {k: v for k, v in state.items() if 'cls_prompts' not in k}
+
+
+def compatible_checkpoint_state(model, state):
+    current = model.state_dict()
+    compatible = {}
+    skipped = []
+    unexpected = []
+    for key, value in state.items():
+        candidates = [key]
+        if key.startswith('module.'):
+            candidates.append(key[len('module.'):])
+        else:
+            candidates.append('module.' + key)
+        target_key = next((candidate for candidate in candidates if candidate in current), None)
+        if target_key is None:
+            unexpected.append(key)
+            continue
+        if hasattr(value, 'shape') and current[target_key].shape != value.shape:
+            skipped.append((target_key, tuple(value.shape), tuple(current[target_key].shape)))
+            continue
+        compatible[target_key] = value
+    return compatible, skipped, unexpected
+
+
+def pad_to_length(values, length):
+    values = np.asarray(values)
+    if len(values) >= length:
+        return values[:length]
+    return np.pad(values, (0, length - len(values)), mode='constant', constant_values=0)
 
 
 def init_and_merge_datasets(data_loader_list):
@@ -281,17 +329,15 @@ class Exp_All_Task(object):
                 pretrain_weight_path = self.args.pretrained_weight
             print('loading pretrained model:',
                   pretrain_weight_path, folder=self.path)
-            if 'pretrain_checkpoint.pth' in pretrain_weight_path:
-                state_dict = torch.load(
-                    pretrain_weight_path, map_location='cpu')['student']
-                ckpt = {}
-                for k, v in state_dict.items():
-                    if not ('cls_prompts' in k):
-                        ckpt[k] = v
-            else:
-                ckpt = torch.load(pretrain_weight_path, map_location='cpu')
+            ckpt = normalize_checkpoint_state(torch_load_checkpoint(pretrain_weight_path, map_location='cpu'))
+            ckpt, skipped, unexpected = compatible_checkpoint_state(self.model, ckpt)
             msg = self.model.load_state_dict(ckpt, strict=False)
             print(msg, folder=self.path)
+            if skipped:
+                preview = ', '.join(item[0] for item in skipped[:5])
+                print(f"skipped {len(skipped)} size-mismatched tensors: {preview}", folder=self.path)
+            if unexpected:
+                print(f"ignored {len(unexpected)} checkpoint tensors not used by current model", folder=self.path)
 
         # Data
         _, train_loader_list = self._get_data(flag='train')
@@ -540,17 +586,15 @@ class Exp_All_Task(object):
                 pretrain_weight_path = self.args.pretrained_weight
                 print('loading pretrained model:',
                       pretrain_weight_path, folder=self.path)
-                if 'pretrain_checkpoint.pth' in pretrain_weight_path:
-                    state_dict = torch.load(
-                        pretrain_weight_path, map_location='cpu')['student']
-                    ckpt = {}
-                    for k, v in state_dict.items():
-                        if not ('cls_prompts' in k):
-                            ckpt[k] = v
-                else:
-                    ckpt = torch.load(pretrain_weight_path, map_location='cpu')
+                ckpt = normalize_checkpoint_state(torch_load_checkpoint(pretrain_weight_path, map_location='cpu'))
+                ckpt, skipped, unexpected = compatible_checkpoint_state(self.model, ckpt)
                 msg = self.model.load_state_dict(ckpt, strict=False)
-                print(msg)
+                print(msg, folder=self.path)
+                if skipped:
+                    preview = ', '.join(item[0] for item in skipped[:5])
+                    print(f"skipped {len(skipped)} size-mismatched tensors: {preview}", folder=self.path)
+                if unexpected:
+                    print(f"ignored {len(unexpected)} checkpoint tensors not used by current model", folder=self.path)
             else:
                 print("no ckpt found!")
                 exit()
@@ -762,73 +806,121 @@ class Exp_All_Task(object):
         return mse, mae
 
     def test_anomaly_detection(self, setting, test_data, test_loader_set, data_task_name, task_id):
+        def collect_scores(loader):
+            scores = []
+            labels = []
+            with torch.no_grad():
+                for batch_x, batch_y in loader:
+                    batch_x = batch_x.float().to(self.device_id)
+                    outputs = self.model(batch_x, None, None, None,
+                                         task_id=task_id, task_name='anomaly_detection')
+                    score = torch.mean(anomaly_criterion(batch_x, outputs), dim=-1)
+                    scores.append(score.detach().cpu())
+                    labels.append(batch_y)
+            scores = gather_tensors_from_all_gpus(scores, self.device_id, to_numpy=True)
+            labels = gather_tensors_from_all_gpus(labels, self.device_id, to_numpy=True)
+            return np.concatenate(scores, axis=0).reshape(-1), np.concatenate(labels, axis=0).reshape(-1)
+
+        config = self.task_data_config_list[task_id][1]
         train_loader, test_loader = test_loader_set
-        attens_energy = []
         anomaly_criterion = nn.MSELoss(reduce=False)
 
         self.model.eval()
-        # (1) stastic on the train set
-        with torch.no_grad():
-            for i, (batch_x, batch_y) in enumerate(train_loader):
-                batch_x = batch_x.float().to(self.device_id)
-                # reconstruction
-                outputs = self.model(
-                    batch_x, None, None, None, task_id=task_id, task_name='anomaly_detection')
-                # criterion
-                score = torch.mean(anomaly_criterion(batch_x, outputs), dim=-1)
-                score = score.detach().cpu()
-                attens_energy.append(score)
+        train_energy, _ = collect_scores(train_loader)
 
-        attens_energy = gather_tensors_from_all_gpus(
-            attens_energy, self.device_id, to_numpy=True)
-        train_energy = np.concatenate(attens_energy, axis=0).reshape(-1)
+        use_mindts_metrics = config.get('mindts_metrics', False)
+        if use_mindts_metrics:
+            _, eval_dataset = test_data if isinstance(test_data, (list, tuple)) else (None, None)
+            score_mode = config.get('score_mode', getattr(self.args, 'anomaly_score_mode', 'thre'))
+            final_step = 1 if score_mode == 'overlap' else config['seq_len']
+            threshold_loader = DataLoader(
+                eval_dataset.with_step(1),
+                batch_size=self.args.batch_size,
+                shuffle=False,
+                num_workers=self.args.num_workers,
+                drop_last=False,
+            )
+            final_loader = DataLoader(
+                eval_dataset.with_step(final_step),
+                batch_size=self.args.batch_size,
+                shuffle=False,
+                num_workers=self.args.num_workers,
+                drop_last=False,
+            )
+            threshold_test_energy, _ = collect_scores(threshold_loader)
+            test_energy, _ = collect_scores(final_loader)
+            gt = eval_dataset.test_labels.reshape(-1).astype(int)
+            test_energy = pad_to_length(test_energy, len(gt)).astype(float)
+            arg_ratios = getattr(self.args, 'anomaly_ratios', None)
+            ratios = arg_ratios if arg_ratios is not None else [self.args.anomaly_ratio]
+        else:
+            threshold_test_energy, gt = collect_scores(test_loader)
+            test_energy = threshold_test_energy
+            gt = gt.astype(int)
+            ratios = [self.args.anomaly_ratio]
 
-        # (2) find the threshold
-        attens_energy = []
-        test_labels = []
-        for i, (batch_x, batch_y) in enumerate(test_loader):
-            batch_x = batch_x.float().to(self.device_id)
-            # reconstruction
-            outputs = self.model(batch_x, None, None, None,
-                                 task_id=task_id, task_name='anomaly_detection')
-            # criterion
-            score = torch.mean(anomaly_criterion(batch_x, outputs), dim=-1)
-            score = score.detach().cpu()
-            attens_energy.append(score)
-            test_labels.append(batch_y)
+        combined_energy = np.concatenate([train_energy, threshold_test_energy], axis=0)
+        rows = []
+        for ratio in ratios:
+            threshold = np.percentile(combined_energy, 100 - ratio)
+            pred = (test_energy > threshold).astype(int)
+            if use_mindts_metrics:
+                pred = pad_to_length(pred, len(gt)).astype(int)
+                precision, recall, f_score, _ = precision_recall_fscore_support(
+                    gt, pred, average='binary', zero_division=0)
+                aff_f = np.nan_to_num(affiliation_f(gt, pred, test_energy) * 100.0, nan=0.0)
+                v_pr = np.nan_to_num(vus_pr(gt, pred, test_energy) * 100.0, nan=0.0)
+                v_roc = np.nan_to_num(vus_roc(gt, pred, test_energy) * 100.0, nan=0.0)
+                rows.append({
+                    'ratio': ratio,
+                    'threshold': threshold,
+                    'Precision': precision * 100.0,
+                    'Recall': recall * 100.0,
+                    'F1': f_score * 100.0,
+                    'Aff-F': aff_f,
+                    'V-PR': v_pr,
+                    'V-ROC': v_roc,
+                })
+            else:
+                adj_gt, adj_pred = adjustment(gt.copy(), pred.copy())
+                accuracy = accuracy_score(adj_gt, adj_pred)
+                precision, recall, f_score, _ = precision_recall_fscore_support(
+                    adj_gt, adj_pred, average='binary', zero_division=0)
+                rows.append({
+                    'ratio': ratio,
+                    'threshold': threshold,
+                    'Accuracy': accuracy,
+                    'Precision': precision,
+                    'Recall': recall,
+                    'F1': f_score,
+                })
 
-        attens_energy = gather_tensors_from_all_gpus(
-            attens_energy, self.device_id, to_numpy=True)
-        test_energy = np.concatenate(attens_energy, axis=0).reshape(-1)
-        combined_energy = np.concatenate([train_energy, test_energy], axis=0)
-        threshold = np.percentile(
-            combined_energy, 100 - self.args.anomaly_ratio)
-        print("Threshold :", threshold)
+        if use_mindts_metrics:
+            select_metric = config.get('select_metric', 'Aff-F')
+            best = max(rows, key=lambda row: np.nan_to_num(row.get(select_metric, row['F1']), nan=-1.0))
+            print(
+                "data_task_name: {} best_ratio={} P={:.2f} R={:.2f} F1={:.2f} Aff-F={:.2f} V-PR={:.2f} V-ROC={:.2f}".format(
+                    data_task_name,
+                    best['ratio'],
+                    best['Precision'],
+                    best['Recall'],
+                    best['F1'],
+                    best['Aff-F'],
+                    best['V-PR'],
+                    best['V-ROC'],
+                ),
+                folder=self.path,
+            )
+            return best['F1'] / 100.0
 
-        # (3) evaluation on the test set
-        pred = (test_energy > threshold).astype(int)
-        test_labels = np.concatenate(test_labels, axis=0).reshape(-1)
-        test_labels = np.array(test_labels)
-        gt = test_labels.astype(int)
-
-        print("pred:   ", pred.shape)
-        print("gt:     ", gt.shape)
-
-        # (4) detection adjustment
-        gt, pred = adjustment(gt, pred)
-
-        pred = np.array(pred)
-        gt = np.array(gt)
-        print("pred: ", pred.shape)
+        row = rows[0]
+        print("Threshold :", row['threshold'])
+        print("pred: ", test_energy.shape)
         print("gt:   ", gt.shape)
-        accuracy = accuracy_score(gt, pred)
-        precision, recall, f_score, support = precision_recall_fscore_support(
-            gt, pred, average='binary')
         print("Accuracy : {:0.4f}, Precision : {:0.4f}, Recall : {:0.4f}, F-score : {:0.4f} ".format(
-            accuracy, precision,
-            recall, f_score))
+            row['Accuracy'], row['Precision'], row['Recall'], row['F1']))
 
-        return f_score
+        return row['F1']
 
     def test_long_term_forecast_offset_unify(self, setting, test_data, test_loader, data_task_name, task_id):
         config = self.task_data_config_list[task_id][1]
