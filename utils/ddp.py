@@ -34,7 +34,8 @@ def init_distributed_mode(args):
     rank = dist.get_rank()
     torch.cuda.set_device(rank)
     torch.cuda.empty_cache()
-    print(f"Start running basic DDP on rank {rank}.")
+    if not getattr(args, 'compact_log', False):
+        print(f"Start running basic DDP on rank {rank}.")
 
     dist.barrier()
     setup_for_distributed(rank == 0)

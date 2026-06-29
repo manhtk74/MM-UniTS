@@ -33,7 +33,8 @@ def adjust_learning_rate(optimizer, epoch, base_lr, args):
                 param_group["lr"] = lr * param_group["lr_scale"]
             else:
                 param_group["lr"] = lr
-        print('Epoch {}: Updating learning rate to {}'.format(epoch+1, lr))
+        if not getattr(args, 'compact_log', False):
+            print('Epoch {}: Updating learning rate to {}'.format(epoch+1, lr))
 
 
 class dotdict(dict):

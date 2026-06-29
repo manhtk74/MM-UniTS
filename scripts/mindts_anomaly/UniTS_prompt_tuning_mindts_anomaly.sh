@@ -6,10 +6,16 @@ wandb_mode=${WANDB_MODE:-disabled}
 project_name=${PROJECT_NAME:-mindts_anomaly_detection}
 exp_name=${EXP_NAME:-prompt_tuning_mindts_anomaly_pct05}
 ckpt_path=${CKPT:-checkpoints/units_x32_pretrain_checkpoint.pth}
+result_root=${RESULT_ROOT:-results/mindts_prompt}
+seed=${SEED:-2021}
+run_name=${RUN_NAME:-$(date +%Y%m%d_%H%M%S)}
+run_dir="${result_root}/${exp_name}/${run_name}/seed_${seed}"
 random_port=$((RANDOM % 9000 + 1000))
 
+mkdir -p "$run_dir"
+
 torchrun --nnodes 1 --nproc-per-node=1 --master_port "$random_port" run.py \
-  --fix_seed "${SEED:-2021}" \
+  --fix_seed "$seed" \
   --is_training 1 \
   --subsample_pct "${SUBSAMPLE_PCT:-0.05}" \
   --model_id "$exp_name" \
@@ -33,6 +39,10 @@ torchrun --nnodes 1 --nproc-per-node=1 --master_port "$random_port" run.py \
   --debug "$wandb_mode" \
   --project_name "$project_name" \
   --clip_grad "${CLIP_GRAD:-100}" \
+  --no_memory_check \
+  --compact_log \
+  --result_dir "$run_dir" \
   --anomaly_score_mode "${SCORE_MODE:-thre}" \
   --anomaly_ratios ${ANOMALY_RATIOS:-0.1 0.5 1 2 3 4 5 6 7 8 9 10 12 15 20 25 30 35 40 45 50} \
-  --task_data_config_path data_provider/mindts_anomaly_detection.yaml
+  --task_data_config_path data_provider/mindts_anomaly_detection.yaml \
+  2>&1 | tee "$run_dir/run.log"

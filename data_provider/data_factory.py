@@ -96,7 +96,8 @@ def data_provider(args, config, flag, ddp=False):  # args,
         if args.subsample_pct is not None and flag == "train":
             data_set = random_subset(
                 data_set, args.subsample_pct, args.fix_seed)
-        print("ddp mode is set to false for anomaly_detection", ddp, len(data_set))
+        if not getattr(args, 'compact_log', False):
+            print("ddp mode is set to false for anomaly_detection", ddp, len(data_set))
         data_loader = DataLoader(
             data_set,
             batch_size=batch_size,
@@ -114,7 +115,8 @@ def data_provider(args, config, flag, ddp=False):  # args,
         if args.subsample_pct is not None and flag == "train":
             data_set = random_subset(
                 data_set, args.subsample_pct, args.fix_seed)
-        print(flag, len(data_set))
+        if not getattr(args, 'compact_log', False):
+            print(flag, len(data_set))
         data_loader = DataLoader(
             data_set,
             batch_size=batch_size,
@@ -142,7 +144,8 @@ def data_provider(args, config, flag, ddp=False):  # args,
         if args.subsample_pct is not None and flag == "train":
             data_set = random_subset(
                 data_set, args.subsample_pct, args.fix_seed)
-        print(flag, len(data_set))
+        if not getattr(args, 'compact_log', False):
+            print(flag, len(data_set))
         data_loader = DataLoader(
             data_set,
             batch_size=batch_size,

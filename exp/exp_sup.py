@@ -19,6 +19,7 @@ import torch.distributed as dist
 from torch.utils.data import DataLoader
 
 import os
+import csv
 import time
 import warnings
 import numpy as np
@@ -200,6 +201,13 @@ class Exp_All_Task(object):
         super(Exp_All_Task, self).__init__()
 
         self.args = args
+        self.compact_log = getattr(self.args, 'compact_log', False)
+        self.current_epoch = 0
+        self.result_csv_path = None
+        if getattr(self.args, 'result_dir', None):
+            os.makedirs(self.args.result_dir, exist_ok=True)
+            seed = self.args.fix_seed if self.args.fix_seed is not None else 'none'
+            self.result_csv_path = os.path.join(self.args.result_dir, f"mindts_seed{seed}.csv")
         self.ori_task_data_config = read_task_data_config(
             self.args.task_data_config_path)
         self.ori_task_data_config_list = get_task_data_config_list(
@@ -213,7 +221,8 @@ class Exp_All_Task(object):
             self.task_data_config_list = self.ori_task_data_config_list
         device_id = dist.get_rank() % torch.cuda.device_count()
         self.device_id = device_id
-        print("device id", self.device_id)
+        if not self.compact_log:
+            print("device id", self.device_id)
         self.model = self._build_model()
 
     def _build_model(self, ddp=True):
@@ -247,24 +256,29 @@ class Exp_All_Task(object):
                     self.args, task_config, flag, ddp=False)  # ddp false to avoid shuffle
                 data_set_list.append([train_data_set, data_set])
                 data_loader_list.append([train_data_loader, data_loader])
-                print(task_data_name, len(data_set))
+                if not self.compact_log:
+                    print(task_data_name, len(data_set))
             else:
                 data_set, data_loader = data_provider(
                     self.args, task_config, flag, ddp=True)
                 data_set_list.append(data_set)
                 data_loader_list.append(data_loader)
-                print(task_data_name, len(data_set))
+                if not self.compact_log:
+                    print(task_data_name, len(data_set))
         return data_set_list, data_loader_list
 
     def _select_optimizer(self):
         eff_batch_size = self.args.batch_size * self.args.acc_it * get_world_size()
         real_learning_rate = self.args.learning_rate * eff_batch_size / 32
         self.real_learning_rate = real_learning_rate
-        print("base lr: %.2e" % (self.args.learning_rate * 32 / eff_batch_size))
-        print("actual lr: %.2e" % real_learning_rate)
-
-        print("accumulate grad iterations: %d" % self.args.acc_it)
-        print("effective batch size: %d" % eff_batch_size)
+        if self.compact_log:
+            print("Optimizer: lr={:.2e} acc_it={} effective_batch={}".format(
+                real_learning_rate, self.args.acc_it, eff_batch_size))
+        else:
+            print("base lr: %.2e" % (self.args.learning_rate * 32 / eff_batch_size))
+            print("actual lr: %.2e" % real_learning_rate)
+            print("accumulate grad iterations: %d" % self.args.acc_it)
+            print("effective batch size: %d" % eff_batch_size)
         if self.args.layer_decay is not None:
             print("layer decay: %.2f" % self.args.layer_decay)
             model_without_ddp = self.model.module
@@ -301,17 +315,25 @@ class Exp_All_Task(object):
         return criterion_list
 
     def choose_training_parts(self, prompt_tune=False):
+        trainable_count = 0
         for name, param in self.model.named_parameters():
             if prompt_tune:
                 if 'prompt_token' in name or 'mask_prompt' in name or 'cls_prompt' in name or 'mask_token' in name or 'cls_token' in name or 'category_token' in name:
                     param.requires_grad = True
-                    print("trainable:", name)
+                    trainable_count += 1
+                    if not self.compact_log:
+                        print("trainable:", name)
                 else:
                     param.requires_grad = False
             else:
                 param.requires_grad = True
+                trainable_count += 1
 
-        if not prompt_tune:
+        if self.compact_log and not getattr(self, '_printed_trainable_summary', False):
+            mode = "prompt" if prompt_tune else "full"
+            print(f"Trainable mode: {mode} ({trainable_count} parameter tensors)")
+            self._printed_trainable_summary = True
+        if not prompt_tune and not self.compact_log:
             print("all trainable.")
 
     def train(self, setting):
@@ -332,11 +354,18 @@ class Exp_All_Task(object):
             ckpt = normalize_checkpoint_state(torch_load_checkpoint(pretrain_weight_path, map_location='cpu'))
             ckpt, skipped, unexpected = compatible_checkpoint_state(self.model, ckpt)
             msg = self.model.load_state_dict(ckpt, strict=False)
-            print(msg, folder=self.path)
+            if self.compact_log:
+                print(
+                    f"Checkpoint: loaded={len(ckpt)} missing={len(msg.missing_keys)} "
+                    f"unexpected={len(msg.unexpected_keys)} skipped_shape={len(skipped)}",
+                    folder=self.path,
+                )
+            else:
+                print(msg, folder=self.path)
             if skipped:
                 preview = ', '.join(item[0] for item in skipped[:5])
                 print(f"skipped {len(skipped)} size-mismatched tensors: {preview}", folder=self.path)
-            if unexpected:
+            if unexpected and not self.compact_log:
                 print(f"ignored {len(unexpected)} checkpoint tensors not used by current model", folder=self.path)
 
         # Data
@@ -346,21 +375,32 @@ class Exp_All_Task(object):
             flag='test', test_anomaly_detection=True)
         data_loader_cycle, train_steps = init_and_merge_datasets(
             train_loader_list)
+        if self.compact_log:
+            task_lengths = []
+            for task_name, loader in zip([item[0] for item in self.task_data_config_list], train_loader_list):
+                task_lengths.append(f"{task_name}:train_batches={len(loader)}")
+            print("Data:", ", ".join(task_lengths), folder=self.path)
 
         # Model param check
         pytorch_total_params = sum(p.numel() for p in self.model.parameters())
-        print("Parameters number for all {} M".format(
-            pytorch_total_params/1e6), folder=self.path)
+        if not self.compact_log:
+            print("Parameters number for all {} M".format(
+                pytorch_total_params/1e6), folder=self.path)
         model_param = []
         for name, param in self.model.named_parameters():
             if ('prompts' in name and 'prompt2forecat' not in name) or 'prompt_token' in name or \
                 'mask_prompt' in name or 'cls_prompt' in name or 'mask_token' in name or 'cls_token' in name or 'category_token' in name:
-                print('skip this:', name)
+                if not self.compact_log:
+                    print('skip this:', name)
             else:
                 model_param.append(param.numel())
         model_total_params = sum(model_param)
-        print("Parameters number for UniTS {} M".format(
-            model_total_params/1e6), folder=self.path)
+        if self.compact_log:
+            print("Parameters: total={:.3f}M backbone={:.3f}M".format(
+                pytorch_total_params/1e6, model_total_params/1e6), folder=self.path)
+        else:
+            print("Parameters number for UniTS {} M".format(
+                model_total_params/1e6), folder=self.path)
 
         # Optimizer and Criterion
         model_optim = self._select_optimizer()
@@ -375,6 +415,7 @@ class Exp_All_Task(object):
         dist.barrier()
 
         for epoch in range(self.args.train_epochs+self.args.prompt_tune_epoch):
+            self.current_epoch = epoch + 1
             adjust_learning_rate(model_optim, epoch,
                                  self.real_learning_rate, self.args)
             # Prompt learning
@@ -476,16 +517,20 @@ class Exp_All_Task(object):
                 wandb.log(
                     {'train_loss_'+self.task_data_config_list[task_id][0]: loss_display, 'norm_value': norm_value, "loss_sum": loss_sum_display/(i+1)})
 
-            if (i + 1) % 100 == 0:
+            if (i + 1) % 100 == 0 and not self.compact_log:
                 if norm_value == None:
                     norm_value = -1
                 if is_main_process():
                     print("\titers: {0}, epoch: {1} | norm: {2:.2f} | loss: {3:.7f} | current_loss: {4} |current task: {5}".format(
                         i + 1, epoch + 1, norm_value, loss_sum_display/(i+1), loss_display, task_name, folder=self.path))
 
-        print("Epoch: {} cost time: {}".format(
-            epoch + 1, time.time() - epoch_time), folder=self.path)
         train_loss = np.average(train_loss_set)
+        if self.compact_log:
+            print("Epoch {:02d}: train_loss={:.6f} time={:.1f}s".format(
+                epoch + 1, train_loss, time.time() - epoch_time), folder=self.path)
+        else:
+            print("Epoch: {} cost time: {}".format(
+                epoch + 1, time.time() - epoch_time), folder=self.path)
         torch.cuda.synchronize()
         dist.barrier()
 
@@ -589,11 +634,18 @@ class Exp_All_Task(object):
                 ckpt = normalize_checkpoint_state(torch_load_checkpoint(pretrain_weight_path, map_location='cpu'))
                 ckpt, skipped, unexpected = compatible_checkpoint_state(self.model, ckpt)
                 msg = self.model.load_state_dict(ckpt, strict=False)
-                print(msg, folder=self.path)
+                if self.compact_log:
+                    print(
+                        f"Checkpoint: loaded={len(ckpt)} missing={len(msg.missing_keys)} "
+                        f"unexpected={len(msg.unexpected_keys)} skipped_shape={len(skipped)}",
+                        folder=self.path,
+                    )
+                else:
+                    print(msg, folder=self.path)
                 if skipped:
                     preview = ', '.join(item[0] for item in skipped[:5])
                     print(f"skipped {len(skipped)} size-mismatched tensors: {preview}", folder=self.path)
-                if unexpected:
+                if unexpected and not self.compact_log:
                     print(f"ignored {len(unexpected)} checkpoint tensors not used by current model", folder=self.path)
             else:
                 print("no ckpt found!")
@@ -663,9 +715,13 @@ class Exp_All_Task(object):
                        'avg_eval_CLS-acc': avg_classification_acc,
                        'avg_eval_IMP-mse': avg_imputation_mse, 'avg_eval_IMP-mae': avg_imputation_mae,
                        'avg_eval_Anomaly-f_score': avg_anomaly_f_score})
-            print("Avg score: LF-mse: {}, LF-mae: {}, CLS-acc {}, IMP-mse: {}, IMP-mae: {}, Ano-F: {}".format(avg_long_term_forecast_mse,
-                                                                                                              avg_long_term_forecast_mae, avg_classification_acc, avg_imputation_mse, avg_imputation_mae, avg_anomaly_f_score), folder=self.path)
-            print(total_dict, folder=self.path)
+            if self.compact_log:
+                print("Epoch {:02d}: avg Ano-F1={:.4f}".format(
+                    self.current_epoch, avg_anomaly_f_score), folder=self.path)
+            else:
+                print("Avg score: LF-mse: {}, LF-mae: {}, CLS-acc {}, IMP-mse: {}, IMP-mae: {}, Ano-F: {}".format(avg_long_term_forecast_mse,
+                                                                                                                  avg_long_term_forecast_mae, avg_classification_acc, avg_imputation_mse, avg_imputation_mae, avg_anomaly_f_score), folder=self.path)
+                print(total_dict, folder=self.path)
         return avg_classification_acc, avg_long_term_forecast_mse, avg_long_term_forecast_mae
 
     def test_long_term_forecast(self, setting, test_data, test_loader, data_task_name, task_id):
@@ -805,6 +861,47 @@ class Exp_All_Task(object):
         torch.cuda.empty_cache()
         return mse, mae
 
+    def append_mindts_rows(self, data_task_name, rows, best):
+        if not self.result_csv_path or not is_main_process():
+            return
+        fieldnames = [
+            'seed',
+            'epoch',
+            'model_id',
+            'dataset',
+            'ratio',
+            'threshold',
+            'Precision',
+            'Recall',
+            'F1',
+            'Aff-F',
+            'V-PR',
+            'V-ROC',
+            'is_best',
+        ]
+        file_exists = os.path.exists(self.result_csv_path)
+        with open(self.result_csv_path, 'a', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            if not file_exists:
+                writer.writeheader()
+            for row in rows:
+                out = {
+                    'seed': self.args.fix_seed,
+                    'epoch': self.current_epoch,
+                    'model_id': self.args.model_id,
+                    'dataset': data_task_name,
+                    'ratio': row.get('ratio'),
+                    'threshold': row.get('threshold'),
+                    'Precision': row.get('Precision'),
+                    'Recall': row.get('Recall'),
+                    'F1': row.get('F1'),
+                    'Aff-F': row.get('Aff-F'),
+                    'V-PR': row.get('V-PR'),
+                    'V-ROC': row.get('V-ROC'),
+                    'is_best': row is best,
+                }
+                writer.writerow(out)
+
     def test_anomaly_detection(self, setting, test_data, test_loader_set, data_task_name, task_id):
         def collect_scores(loader):
             scores = []
@@ -898,8 +995,8 @@ class Exp_All_Task(object):
         if use_mindts_metrics:
             select_metric = config.get('select_metric', 'Aff-F')
             best = max(rows, key=lambda row: np.nan_to_num(row.get(select_metric, row['F1']), nan=-1.0))
-            print(
-                "data_task_name: {} best_ratio={} P={:.2f} R={:.2f} F1={:.2f} Aff-F={:.2f} V-PR={:.2f} V-ROC={:.2f}".format(
+            self.append_mindts_rows(data_task_name, rows, best)
+            line = "{} r={} P={:.2f} R={:.2f} F1={:.2f} Aff-F={:.2f} V-PR={:.2f} V-ROC={:.2f}".format(
                     data_task_name,
                     best['ratio'],
                     best['Precision'],
@@ -908,9 +1005,8 @@ class Exp_All_Task(object):
                     best['Aff-F'],
                     best['V-PR'],
                     best['V-ROC'],
-                ),
-                folder=self.path,
             )
+            print(line, folder=self.path)
             return best['F1'] / 100.0
 
         row = rows[0]

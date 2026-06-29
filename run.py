@@ -33,6 +33,10 @@ if __name__ == '__main__':
                         default='exp/all_task.yaml', help='root path of the task and data yaml file')
     parser.add_argument('--subsample_pct', type=float,
                         default=None, help='subsample percent')
+    parser.add_argument('--compact_log', action='store_true',
+                        default=False, help='print concise logs for repeated/tuning runs')
+    parser.add_argument('--result_dir', type=str, default=None,
+                        help='optional directory to write evaluation CSV files')
 
     # ddp
     parser.add_argument('--local-rank', type=int, help='local rank')
@@ -41,6 +45,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', type=int, default=0,
                         help='data loader num workers')
     parser.add_argument("--memory_check", action="store_true", default=True)
+    parser.add_argument("--no_memory_check", action="store_false", dest="memory_check")
     parser.add_argument("--large_model", action="store_true", default=True)
 
     # optimization
@@ -121,8 +126,25 @@ if __name__ == '__main__':
         torch.manual_seed(args.fix_seed)
         np.random.seed(args.fix_seed)
 
-    print('Args in experiment:')
-    print(args)
+    if args.compact_log:
+        print(
+            "Args: model_id={} seed={} prompt_epochs={} train_epochs={} "
+            "seq_len_cfg={} patch_len={} stride={} lr={} subsample={} acc_it={}".format(
+                args.model_id,
+                args.fix_seed,
+                args.prompt_tune_epoch,
+                args.train_epochs,
+                args.task_data_config_path,
+                args.patch_len,
+                args.stride,
+                args.learning_rate,
+                args.subsample_pct,
+                args.acc_it,
+            )
+        )
+    else:
+        print('Args in experiment:')
+        print(args)
     exp_name = '{}_{}_{}_{}_ft{}_dm{}_el{}_{}'.format(
         args.task_name,
         args.model_id,
@@ -135,7 +157,8 @@ if __name__ == '__main__':
 
     if int(args.prompt_tune_epoch) != 0:
         exp_name = 'Ptune'+str(args.prompt_tune_epoch)+'_'+exp_name
-        print(exp_name)
+        if not args.compact_log:
+            print(exp_name)
 
     if is_main_process():
         wandb.init(
@@ -163,7 +186,10 @@ if __name__ == '__main__':
                 args.des, ii)
 
             exp = Exp(args)  # set experiments
-            print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
+            if args.compact_log:
+                print('Start training:', setting)
+            else:
+                print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
             exp.train(setting)
     else:
         ii = 0
@@ -178,6 +204,9 @@ if __name__ == '__main__':
             args.des, ii)
 
         exp = Exp(args)  # set experiments
-        print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+        if args.compact_log:
+            print('Testing:', setting)
+        else:
+            print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
         exp.test(setting, load_pretrain=True)
         torch.cuda.empty_cache()
