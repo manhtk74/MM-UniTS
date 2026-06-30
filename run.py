@@ -94,6 +94,11 @@ if __name__ == '__main__':
     parser.add_argument("--patch_len", type=int, default=16)
     parser.add_argument("--stride", type=int, default=8)
     parser.add_argument("--prompt_num", type=int, default=5)
+    parser.add_argument("--use_text_modality",
+                        action="store_true", default=False,
+                        help="load per-timestep text embeddings and fuse them into patch tokens")
+    parser.add_argument("--text_embedding_dim", type=int, default=768,
+                        help="input dimension of precomputed text embeddings")
     parser.add_argument('--fix_seed', type=int, default=None, help='seed')
 
     # task related settings

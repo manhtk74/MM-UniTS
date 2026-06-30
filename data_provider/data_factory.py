@@ -91,6 +91,8 @@ def data_provider(args, config, flag, ddp=False):  # args,
         if config['data'] == 'MindTS':
             dataset_kwargs['data_path'] = config.get('data_path', f"{config['dataset_name']}.csv")
             dataset_kwargs['dataset_name'] = config.get('dataset_name')
+            dataset_kwargs['use_text_modality'] = getattr(args, 'use_text_modality', False)
+            dataset_kwargs['text_embedding_path'] = config.get('text_embedding_path')
         data_set = Data(
             **dataset_kwargs
         )
@@ -131,17 +133,21 @@ def data_provider(args, config, flag, ddp=False):  # args,
     else:
         if config['data'] == 'm4':
             drop_last = False
-        data_set = Data(
-            root_path=config['root_path'],
-            data_path=config['data_path'],
-            flag=flag,
-            size=[config['seq_len'], config['label_len'], config['pred_len']],
-            features=config['features'],
-            target=args.target,
-            timeenc=timeenc,
-            freq=freq,
-            seasonal_patterns=config['seasonal_patterns'] if config['data'] == 'm4' else None
-        )
+        dataset_kwargs = {
+            'root_path': config['root_path'],
+            'data_path': config['data_path'],
+            'flag': flag,
+            'size': [config['seq_len'], config['label_len'], config['pred_len']],
+            'features': config['features'],
+            'target': args.target,
+            'timeenc': timeenc,
+            'freq': freq,
+            'seasonal_patterns': config['seasonal_patterns'] if config['data'] == 'm4' else None,
+        }
+        if config['data'] == 'TimeMMD':
+            dataset_kwargs['use_text_modality'] = getattr(args, 'use_text_modality', False)
+            dataset_kwargs['text_embedding_path'] = config.get('text_embedding_path')
+        data_set = Data(**dataset_kwargs)
         if args.subsample_pct is not None and flag == "train":
             data_set = random_subset(
                 data_set, args.subsample_pct, args.fix_seed)

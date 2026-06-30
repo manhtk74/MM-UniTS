@@ -315,7 +315,9 @@ class Dataset_Custom(Dataset):
 class TimeMMDForecastDataset(Dataset):
     def __init__(self, root_path, flag='train', size=None,
                  features='S', data_path='Environment.csv',
-                 target='OT', scale=True, timeenc=0, freq='d', seasonal_patterns=None):
+                 target='OT', scale=True, timeenc=0, freq='d',
+                 seasonal_patterns=None, use_text_modality=False,
+                 text_embedding_path=None):
         if size is None:
             self.seq_len = 96
             self.label_len = 48
@@ -333,19 +335,22 @@ class TimeMMDForecastDataset(Dataset):
         self.freq = freq
         self.root_path = root_path
         self.data_path = data_path
+        self.use_text_modality = use_text_modality
+        self.text_embedding_path = text_embedding_path
         self.__read_data__()
 
     def __read_data__(self):
         self.scaler = StandardScaler()
         path = os.path.join(self.root_path, self.data_path)
         df_raw = pd.read_csv(path)
+        df_raw["_row_id"] = np.arange(len(df_raw))
         if self.target not in df_raw.columns:
             raise ValueError(f"Target column '{self.target}' not found in {path}")
         date_col = 'date' if 'date' in df_raw.columns else 'Date'
         if date_col not in df_raw.columns:
             raise ValueError(f"No date column found in {path}")
 
-        df_raw = df_raw[[date_col, self.target]].rename(columns={date_col: 'date'})
+        df_raw = df_raw[[date_col, self.target, "_row_id"]].rename(columns={date_col: 'date'})
         df_raw['date'] = pd.to_datetime(df_raw['date'], errors='coerce')
         df_raw[self.target] = pd.to_numeric(df_raw[self.target], errors='coerce')
         df_raw[self.target] = df_raw[self.target].replace([np.inf, -np.inf], np.nan)
@@ -382,6 +387,19 @@ class TimeMMDForecastDataset(Dataset):
         self.data_x = data[border1:border2]
         self.data_y = data[border1:border2]
         self.data_stamp = data_stamp
+        if self.use_text_modality:
+            if self.text_embedding_path is None:
+                stem = Path(self.data_path).stem
+                self.text_embedding_path = os.path.join(self.root_path, f"{stem}_text_embeddings.npy")
+            if not os.path.exists(self.text_embedding_path):
+                raise FileNotFoundError(f"Text embedding file not found: {self.text_embedding_path}")
+            text_embeddings = np.load(self.text_embedding_path).astype(np.float32)
+            if len(text_embeddings) < int(df_raw["_row_id"].max()) + 1:
+                raise ValueError(
+                    f"Text embeddings length {len(text_embeddings)} is shorter than source rows for {path}"
+                )
+            row_ids = df_raw["_row_id"].to_numpy(dtype=np.int64)
+            self.text_embeddings = text_embeddings[row_ids][border1:border2]
         self.scale = self.scale
 
     def __getitem__(self, index):
@@ -395,6 +413,9 @@ class TimeMMDForecastDataset(Dataset):
         seq_x_mark = self.data_stamp[s_begin:s_end]
         seq_y_mark = self.data_stamp[r_begin:r_end]
 
+        if self.use_text_modality:
+            seq_text_x = self.text_embeddings[s_begin:s_end]
+            return seq_x, seq_y, seq_x_mark, seq_y_mark, seq_text_x
         return seq_x, seq_y, seq_x_mark, seq_y_mark
 
     def __len__(self):
@@ -630,7 +651,9 @@ class SWATSegLoader(Dataset):
 
 
 class MindTSSegLoader(Dataset):
-    def __init__(self, root_path, win_size, step=1, flag="train", data_path=None, dataset_name=None, scale=True):
+    def __init__(self, root_path, win_size, step=1, flag="train", data_path=None,
+                 dataset_name=None, scale=True, use_text_modality=False,
+                 text_embedding_path=None):
         self.flag = flag
         self.step = step
         self.win_size = win_size
@@ -638,6 +661,8 @@ class MindTSSegLoader(Dataset):
         self.root_path = root_path
         self.dataset_name = dataset_name
         self.data_path = data_path or f"{dataset_name}.csv"
+        self.use_text_modality = use_text_modality
+        self.text_embedding_path = text_embedding_path
         self.scaler = StandardScaler()
         self.__read_data__()
 
@@ -686,6 +711,18 @@ class MindTSSegLoader(Dataset):
         features = df.drop(columns=["label"]).to_numpy(dtype=np.float32)
         train_data = np.nan_to_num(features[:train_len])
         test_data = np.nan_to_num(features[train_len:])
+        if self.use_text_modality:
+            if self.text_embedding_path is None:
+                self.text_embedding_path = str(data_path.with_name(f"{data_path.stem}_text_embeddings.npy"))
+            if not os.path.exists(self.text_embedding_path):
+                raise FileNotFoundError(f"Text embedding file not found: {self.text_embedding_path}")
+            text_embeddings = np.load(self.text_embedding_path).astype(np.float32)
+            if len(text_embeddings) != len(features):
+                raise ValueError(
+                    f"Text embeddings length {len(text_embeddings)} does not match MindTS length {len(features)} for {data_path}"
+                )
+            train_text = text_embeddings[:train_len]
+            test_text = text_embeddings[train_len:]
 
         if self.scale:
             self.scaler.fit(train_data)
@@ -699,6 +736,10 @@ class MindTSSegLoader(Dataset):
         data_len = len(self.train)
         self.val = self.train[int(data_len * 0.8):]
         self.val_labels = self.train_labels[int(data_len * 0.8):]
+        if self.use_text_modality:
+            self.train_text = train_text
+            self.test_text = test_text
+            self.val_text = self.train_text[int(data_len * 0.8):]
 
     def with_step(self, step):
         clone = copy.copy(self)
@@ -717,13 +758,22 @@ class MindTSSegLoader(Dataset):
     def __getitem__(self, index):
         index = index * self.step
         if self.flag == "train":
-            return np.float32(self.train[index:index + self.win_size]), np.float32(
-                self.train_labels[index:index + self.win_size])
+            item = (np.float32(self.train[index:index + self.win_size]), np.float32(
+                self.train_labels[index:index + self.win_size]))
+            if self.use_text_modality:
+                return item + (np.float32(self.train_text[index:index + self.win_size]),)
+            return item
         elif self.flag == "val":
-            return np.float32(self.val[index:index + self.win_size]), np.float32(
-                self.val_labels[index:index + self.win_size])
-        return np.float32(self.test[index:index + self.win_size]), np.float32(
-            self.test_labels[index:index + self.win_size])
+            item = (np.float32(self.val[index:index + self.win_size]), np.float32(
+                self.val_labels[index:index + self.win_size]))
+            if self.use_text_modality:
+                return item + (np.float32(self.val_text[index:index + self.win_size]),)
+            return item
+        item = (np.float32(self.test[index:index + self.win_size]), np.float32(
+            self.test_labels[index:index + self.win_size]))
+        if self.use_text_modality:
+            return item + (np.float32(self.test_text[index:index + self.win_size]),)
+        return item
 
 
 class UEAloader(Dataset):

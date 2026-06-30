@@ -196,6 +196,24 @@ def init_and_merge_datasets(data_loader_list):
     return dataloader, train_steps
 
 
+def unpack_forecast_batch(batch):
+    batch_x, batch_y, batch_x_mark, batch_y_mark = batch[:4]
+    batch_text = batch[4] if len(batch) > 4 else None
+    return batch_x, batch_y, batch_x_mark, batch_y_mark, batch_text
+
+
+def unpack_anomaly_batch(batch):
+    batch_x, batch_y = batch[:2]
+    batch_text = batch[2] if len(batch) > 2 else None
+    return batch_x, batch_y, batch_text
+
+
+def forward_with_optional_text(model, *args, text_enc=None, **kwargs):
+    if text_enc is None:
+        return model(*args, **kwargs)
+    return model(*args, text_enc=text_enc, **kwargs)
+
+
 class Exp_All_Task(object):
     def __init__(self, args):
         super(Exp_All_Task, self).__init__()
@@ -284,7 +302,8 @@ class Exp_All_Task(object):
             model_without_ddp = self.model.module
             param_groups = param_groups_lrd(model_without_ddp, self.args.weight_decay,
                                             no_weight_decay_list=[
-                                                'prompts', 'mask_tokens', 'cls_tokens', 'category_tokens'],
+                                                'prompts', 'mask_tokens', 'cls_tokens', 'category_tokens',
+                                                'text_gate'],
                                             layer_decay=self.args.layer_decay
                                             )
             model_optim = optim.Adam(param_groups, lr=real_learning_rate)
@@ -319,6 +338,11 @@ class Exp_All_Task(object):
         for name, param in self.model.named_parameters():
             if prompt_tune:
                 if 'prompt_token' in name or 'mask_prompt' in name or 'cls_prompt' in name or 'mask_token' in name or 'cls_token' in name or 'category_token' in name:
+                    param.requires_grad = True
+                    trainable_count += 1
+                    if not self.compact_log:
+                        print("trainable:", name)
+                elif getattr(self.args, 'use_text_modality', False) and 'text_' in name:
                     param.requires_grad = True
                     trainable_count += 1
                     if not self.compact_log:
@@ -389,7 +413,8 @@ class Exp_All_Task(object):
         model_param = []
         for name, param in self.model.named_parameters():
             if ('prompts' in name and 'prompt2forecat' not in name) or 'prompt_token' in name or \
-                'mask_prompt' in name or 'cls_prompt' in name or 'mask_token' in name or 'cls_token' in name or 'category_token' in name:
+                'mask_prompt' in name or 'cls_prompt' in name or 'mask_token' in name or 'cls_token' in name or \
+                    'category_token' in name or 'text_' in name:
                 if not self.compact_log:
                     print('skip this:', name)
             else:
@@ -542,10 +567,12 @@ class Exp_All_Task(object):
         task_name = config['task_name']
         features = config['features']
 
-        batch_x, batch_y, _, _ = this_batch
+        batch_x, batch_y, _, _, batch_text = unpack_forecast_batch(this_batch)
 
         batch_x = batch_x.float().to(self.device_id)
         batch_y = batch_y.float().to(self.device_id)
+        if batch_text is not None:
+            batch_text = batch_text.float().to(self.device_id)
 
         dec_inp = None
         dec_inp = None
@@ -553,8 +580,9 @@ class Exp_All_Task(object):
         batch_y_mark = None
 
         with torch.cuda.amp.autocast():
-            outputs = model(batch_x, batch_x_mark, dec_inp,
-                            batch_y_mark, task_id=task_id, task_name=task_name)
+            outputs = forward_with_optional_text(
+                model, batch_x, batch_x_mark, dec_inp, batch_y_mark,
+                task_id=task_id, task_name=task_name, text_enc=batch_text)
             f_dim = -1 if features == 'MS' else 0
             outputs = outputs[:, -pred_len:, f_dim:]
             batch_y = batch_y[:, -pred_len:, f_dim:]
@@ -585,7 +613,7 @@ class Exp_All_Task(object):
         task_name = config['task_name']
         features = config['features']
 
-        batch_x, _, _, _ = this_batch
+        batch_x = this_batch[0]
         batch_x = batch_x.float().to(self.device_id)
 
         # block-wise imputation
@@ -605,13 +633,16 @@ class Exp_All_Task(object):
         task_name = config['task_name']
         features = config['features']
 
-        batch_x, _ = this_batch
+        batch_x, _, batch_text = unpack_anomaly_batch(this_batch)
 
         batch_x = batch_x.float().to(self.device_id)
+        if batch_text is not None:
+            batch_text = batch_text.float().to(self.device_id)
 
         with torch.cuda.amp.autocast():
-            outputs = model(batch_x, None, None,
-                            None, task_id=task_id, task_name=task_name)
+            outputs = forward_with_optional_text(
+                model, batch_x, None, None, None,
+                task_id=task_id, task_name=task_name, text_enc=batch_text)
             f_dim = -1 if features == 'MS' else 0
             outputs = outputs[:, :, f_dim:]
             loss = criterion(outputs, batch_x)
@@ -742,9 +773,12 @@ class Exp_All_Task(object):
 
         self.model.eval()
         with torch.no_grad():
-            for i, (batch_x, batch_y, _, _) in enumerate(test_loader):
+            for i, this_batch in enumerate(test_loader):
+                batch_x, batch_y, _, _, batch_text = unpack_forecast_batch(this_batch)
                 batch_x = batch_x.float().to(self.device_id)
                 batch_y = batch_y.float().to(self.device_id)
+                if batch_text is not None:
+                    batch_text = batch_text.float().to(self.device_id)
 
                 dec_inp = None
                 dec_inp = None
@@ -752,8 +786,10 @@ class Exp_All_Task(object):
                 batch_y_mark = None
 
                 with torch.cuda.amp.autocast():
-                    outputs = self.model(
-                        batch_x, batch_x_mark, dec_inp, batch_y_mark, task_id=task_id, task_name='long_term_forecast')
+                    outputs = forward_with_optional_text(
+                        self.model, batch_x, batch_x_mark, dec_inp, batch_y_mark,
+                        task_id=task_id, task_name='long_term_forecast',
+                        text_enc=batch_text)
 
                 f_dim = -1 if features == 'MS' else 0
                 outputs = outputs[:, -pred_len:, f_dim:]
@@ -885,7 +921,8 @@ class Exp_All_Task(object):
 
         self.model.eval()
         with torch.no_grad():
-            for i, (batch_x, _, batch_x_mark, _) in enumerate(test_loader):
+            for i, this_batch in enumerate(test_loader):
+                batch_x, _, batch_x_mark, _ = this_batch[:4]
                 batch_x = batch_x.float().to(self.device_id)
                 batch_x_mark = batch_x_mark.float().to(self.device_id)
 
@@ -928,10 +965,15 @@ class Exp_All_Task(object):
             scores = []
             labels = []
             with torch.no_grad():
-                for batch_x, batch_y in loader:
+                for this_batch in loader:
+                    batch_x, batch_y, batch_text = unpack_anomaly_batch(this_batch)
                     batch_x = batch_x.float().to(self.device_id)
-                    outputs = self.model(batch_x, None, None, None,
-                                         task_id=task_id, task_name='anomaly_detection')
+                    if batch_text is not None:
+                        batch_text = batch_text.float().to(self.device_id)
+                    outputs = forward_with_optional_text(
+                        self.model, batch_x, None, None, None,
+                        task_id=task_id, task_name='anomaly_detection',
+                        text_enc=batch_text)
                     score = torch.mean(anomaly_criterion(batch_x, outputs), dim=-1)
                     scores.append(score.detach().cpu())
                     labels.append(batch_y)
@@ -1064,18 +1106,23 @@ class Exp_All_Task(object):
         trues = []
         self.model.eval()
         with torch.no_grad():
-            for i, (batch_x, batch_y, _, _) in enumerate(test_loader):
+            for i, this_batch in enumerate(test_loader):
+                batch_x, batch_y, _, _, batch_text = unpack_forecast_batch(this_batch)
                 batch_x = batch_x.float().to(self.device_id)
                 batch_y = batch_y.float().to(self.device_id)
                 batch_y = batch_y[:,-max_pred_len:][:,:pred_len]
+                if batch_text is not None:
+                    batch_text = batch_text.float().to(self.device_id)
 
                 dec_inp = None
                 batch_x_mark = None
                 batch_y_mark = None
 
                 with torch.cuda.amp.autocast():
-                    outputs = self.model(
-                        batch_x, batch_x_mark, dec_inp, batch_y_mark, task_id=task_id, task_name='long_term_forecast')
+                    outputs = forward_with_optional_text(
+                        self.model, batch_x, batch_x_mark, dec_inp, batch_y_mark,
+                        task_id=task_id, task_name='long_term_forecast',
+                        text_enc=batch_text)
 
                 f_dim = -1 if features == 'MS' else 0
                 outputs = outputs[:, -pred_len:, f_dim:]
@@ -1115,16 +1162,22 @@ class Exp_All_Task(object):
             split_padding_mask = split_tensor(padding_mask, small_batch_size)
             return list(zip(split_batch_x, split_label, split_padding_mask))
         elif task_name == 'long_term_forecast' or task_name == 'imputation':
-            batch_x, batch_y, batch_x_mark, batch_y_mark = batch
+            batch_x, batch_y, batch_x_mark, batch_y_mark = batch[:4]
             split_batch_x = split_tensor(batch_x, small_batch_size)
             split_batch_y = split_tensor(batch_y, small_batch_size)
             split_batch_x_mark = split_tensor(batch_x_mark, small_batch_size)
             split_batch_y_mark = split_tensor(batch_y_mark, small_batch_size)
+            if len(batch) > 4:
+                split_batch_text = split_tensor(batch[4], small_batch_size)
+                return list(zip(split_batch_x, split_batch_y, split_batch_x_mark, split_batch_y_mark, split_batch_text))
             return list(zip(split_batch_x, split_batch_y, split_batch_x_mark, split_batch_y_mark))
         elif task_name == 'anomaly_detection':
-            batch_x, batch_y = batch
+            batch_x, batch_y = batch[:2]
             split_batch_x = split_tensor(batch_x, small_batch_size)
             split_batch_y = split_tensor(batch_y, small_batch_size)
+            if len(batch) > 2:
+                split_batch_text = split_tensor(batch[2], small_batch_size)
+                return list(zip(split_batch_x, split_batch_y, split_batch_text))
             return list(zip(split_batch_x, split_batch_y))
 
     def memory_check(self, data_loader_cycle, criterion_list, holdout_memory=3):

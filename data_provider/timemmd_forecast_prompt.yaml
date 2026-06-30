@@ -4,7 +4,7 @@ task_dataset:
     dataset_name: Environment
     dataset: TimeMMD_Environment
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Environment
+    root_path: dataset/TimeMMD
     data_path: Environment.csv
     features: S
     target: OT
@@ -21,7 +21,7 @@ task_dataset:
     dataset_name: Environment
     dataset: TimeMMD_Environment
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Environment
+    root_path: dataset/TimeMMD
     data_path: Environment.csv
     features: S
     target: OT
@@ -38,7 +38,7 @@ task_dataset:
     dataset_name: Environment
     dataset: TimeMMD_Environment
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Environment
+    root_path: dataset/TimeMMD
     data_path: Environment.csv
     features: S
     target: OT
@@ -55,7 +55,7 @@ task_dataset:
     dataset_name: Environment
     dataset: TimeMMD_Environment
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Environment
+    root_path: dataset/TimeMMD
     data_path: Environment.csv
     features: S
     target: OT
@@ -72,7 +72,7 @@ task_dataset:
     dataset_name: Climate
     dataset: TimeMMD_Climate
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Climate
+    root_path: dataset/TimeMMD
     data_path: Climate.csv
     features: S
     target: OT
@@ -89,7 +89,7 @@ task_dataset:
     dataset_name: Climate
     dataset: TimeMMD_Climate
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Climate
+    root_path: dataset/TimeMMD
     data_path: Climate.csv
     features: S
     target: OT
@@ -106,7 +106,7 @@ task_dataset:
     dataset_name: Climate
     dataset: TimeMMD_Climate
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Climate
+    root_path: dataset/TimeMMD
     data_path: Climate.csv
     features: S
     target: OT
@@ -123,7 +123,7 @@ task_dataset:
     dataset_name: Climate
     dataset: TimeMMD_Climate
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Climate
+    root_path: dataset/TimeMMD
     data_path: Climate.csv
     features: S
     target: OT
@@ -140,7 +140,7 @@ task_dataset:
     dataset_name: Energy
     dataset: TimeMMD_Energy
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Energy
+    root_path: dataset/TimeMMD
     data_path: Energy.csv
     features: S
     target: OT
@@ -157,7 +157,7 @@ task_dataset:
     dataset_name: Energy
     dataset: TimeMMD_Energy
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Energy
+    root_path: dataset/TimeMMD
     data_path: Energy.csv
     features: S
     target: OT
@@ -174,7 +174,7 @@ task_dataset:
     dataset_name: Energy
     dataset: TimeMMD_Energy
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Energy
+    root_path: dataset/TimeMMD
     data_path: Energy.csv
     features: S
     target: OT
@@ -191,7 +191,7 @@ task_dataset:
     dataset_name: Energy
     dataset: TimeMMD_Energy
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Energy
+    root_path: dataset/TimeMMD
     data_path: Energy.csv
     features: S
     target: OT
@@ -208,7 +208,7 @@ task_dataset:
     dataset_name: Health_AFR
     dataset: TimeMMD_Health_AFR
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Health_AFR
+    root_path: dataset/TimeMMD
     data_path: Health_AFR.csv
     features: S
     target: OT
@@ -225,7 +225,7 @@ task_dataset:
     dataset_name: Health_AFR
     dataset: TimeMMD_Health_AFR
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Health_AFR
+    root_path: dataset/TimeMMD
     data_path: Health_AFR.csv
     features: S
     target: OT
@@ -242,7 +242,7 @@ task_dataset:
     dataset_name: Health_AFR
     dataset: TimeMMD_Health_AFR
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Health_AFR
+    root_path: dataset/TimeMMD
     data_path: Health_AFR.csv
     features: S
     target: OT
@@ -259,7 +259,7 @@ task_dataset:
     dataset_name: Health_AFR
     dataset: TimeMMD_Health_AFR
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Health_AFR
+    root_path: dataset/TimeMMD
     data_path: Health_AFR.csv
     features: S
     target: OT
@@ -276,7 +276,7 @@ task_dataset:
     dataset_name: Health_US
     dataset: TimeMMD_Health_US
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Health_US
+    root_path: dataset/TimeMMD
     data_path: Health_US.csv
     features: S
     target: OT
@@ -293,7 +293,7 @@ task_dataset:
     dataset_name: Health_US
     dataset: TimeMMD_Health_US
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Health_US
+    root_path: dataset/TimeMMD
     data_path: Health_US.csv
     features: S
     target: OT
@@ -310,7 +310,7 @@ task_dataset:
     dataset_name: Health_US
     dataset: TimeMMD_Health_US
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Health_US
+    root_path: dataset/TimeMMD
     data_path: Health_US.csv
     features: S
     target: OT
@@ -327,7 +327,7 @@ task_dataset:
     dataset_name: Health_US
     dataset: TimeMMD_Health_US
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Health_US
+    root_path: dataset/TimeMMD
     data_path: Health_US.csv
     features: S
     target: OT
@@ -344,7 +344,7 @@ task_dataset:
     dataset_name: Agriculture
     dataset: TimeMMD_Agriculture
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Agriculture
+    root_path: dataset/TimeMMD
     data_path: Agriculture.csv
     features: S
     target: OT
@@ -361,7 +361,7 @@ task_dataset:
     dataset_name: Agriculture
     dataset: TimeMMD_Agriculture
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Agriculture
+    root_path: dataset/TimeMMD
     data_path: Agriculture.csv
     features: S
     target: OT
@@ -378,7 +378,7 @@ task_dataset:
     dataset_name: Agriculture
     dataset: TimeMMD_Agriculture
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Agriculture
+    root_path: dataset/TimeMMD
     data_path: Agriculture.csv
     features: S
     target: OT
@@ -395,7 +395,7 @@ task_dataset:
     dataset_name: Agriculture
     dataset: TimeMMD_Agriculture
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Agriculture
+    root_path: dataset/TimeMMD
     data_path: Agriculture.csv
     features: S
     target: OT
@@ -412,7 +412,7 @@ task_dataset:
     dataset_name: Economy
     dataset: TimeMMD_Economy
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Economy
+    root_path: dataset/TimeMMD
     data_path: Economy.csv
     features: S
     target: OT
@@ -429,7 +429,7 @@ task_dataset:
     dataset_name: Economy
     dataset: TimeMMD_Economy
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Economy
+    root_path: dataset/TimeMMD
     data_path: Economy.csv
     features: S
     target: OT
@@ -446,7 +446,7 @@ task_dataset:
     dataset_name: Economy
     dataset: TimeMMD_Economy
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Economy
+    root_path: dataset/TimeMMD
     data_path: Economy.csv
     features: S
     target: OT
@@ -463,7 +463,7 @@ task_dataset:
     dataset_name: Economy
     dataset: TimeMMD_Economy
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Economy
+    root_path: dataset/TimeMMD
     data_path: Economy.csv
     features: S
     target: OT
@@ -480,7 +480,7 @@ task_dataset:
     dataset_name: Security
     dataset: TimeMMD_Security
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Security
+    root_path: dataset/TimeMMD
     data_path: Security.csv
     features: S
     target: OT
@@ -497,7 +497,7 @@ task_dataset:
     dataset_name: Security
     dataset: TimeMMD_Security
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Security
+    root_path: dataset/TimeMMD
     data_path: Security.csv
     features: S
     target: OT
@@ -514,7 +514,7 @@ task_dataset:
     dataset_name: Security
     dataset: TimeMMD_Security
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Security
+    root_path: dataset/TimeMMD
     data_path: Security.csv
     features: S
     target: OT
@@ -531,7 +531,7 @@ task_dataset:
     dataset_name: Security
     dataset: TimeMMD_Security
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Security
+    root_path: dataset/TimeMMD
     data_path: Security.csv
     features: S
     target: OT
@@ -548,7 +548,7 @@ task_dataset:
     dataset_name: SocialGood
     dataset: TimeMMD_SocialGood
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/SocialGood
+    root_path: dataset/TimeMMD
     data_path: SocialGood.csv
     features: S
     target: OT
@@ -565,7 +565,7 @@ task_dataset:
     dataset_name: SocialGood
     dataset: TimeMMD_SocialGood
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/SocialGood
+    root_path: dataset/TimeMMD
     data_path: SocialGood.csv
     features: S
     target: OT
@@ -582,7 +582,7 @@ task_dataset:
     dataset_name: SocialGood
     dataset: TimeMMD_SocialGood
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/SocialGood
+    root_path: dataset/TimeMMD
     data_path: SocialGood.csv
     features: S
     target: OT
@@ -599,7 +599,7 @@ task_dataset:
     dataset_name: SocialGood
     dataset: TimeMMD_SocialGood
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/SocialGood
+    root_path: dataset/TimeMMD
     data_path: SocialGood.csv
     features: S
     target: OT
@@ -616,7 +616,7 @@ task_dataset:
     dataset_name: Traffic
     dataset: TimeMMD_Traffic
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Traffic
+    root_path: dataset/TimeMMD
     data_path: Traffic.csv
     features: S
     target: OT
@@ -633,7 +633,7 @@ task_dataset:
     dataset_name: Traffic
     dataset: TimeMMD_Traffic
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Traffic
+    root_path: dataset/TimeMMD
     data_path: Traffic.csv
     features: S
     target: OT
@@ -650,7 +650,7 @@ task_dataset:
     dataset_name: Traffic
     dataset: TimeMMD_Traffic
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Traffic
+    root_path: dataset/TimeMMD
     data_path: Traffic.csv
     features: S
     target: OT
@@ -667,7 +667,7 @@ task_dataset:
     dataset_name: Traffic
     dataset: TimeMMD_Traffic
     data: TimeMMD
-    root_path: dataset/TimeMMD/numerical/Traffic
+    root_path: dataset/TimeMMD
     data_path: Traffic.csv
     features: S
     target: OT

@@ -12,6 +12,10 @@ seed=${SEED:-2021}
 run_name=${RUN_NAME:-$(date +%Y%m%d_%H%M%S)}
 run_dir="${result_root}/${result_tag}/${exp_name}/${run_name}/seed_${seed}"
 random_port=$((RANDOM % 9000 + 1000))
+text_args=()
+if [[ "${USE_TEXT_MODALITY:-0}" == "1" ]]; then
+  text_args+=(--use_text_modality --text_embedding_dim "${TEXT_EMBEDDING_DIM:-768}")
+fi
 
 mkdir -p "$run_dir"
 
@@ -27,6 +31,7 @@ torchrun --nnodes 1 --nproc-per-node=1 --master_port "$random_port" run.py \
   --stride "${STRIDE:-6}" \
   --e_layers "${E_LAYERS:-3}" \
   --d_model "${D_MODEL:-32}" \
+  "${text_args[@]}" \
   --des 'Exp' \
   --itr 1 \
   --lradj prompt_tuning \

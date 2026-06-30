@@ -537,6 +537,37 @@ class PatchEmbedding(nn.Module):
         return self.dropout(x), n_vars
 
 
+class TextPatchEmbedding(nn.Module):
+    """
+    Module that use attention to get patch's text embedding based on token embedding.
+    """
+    def __init__(self, text_dim, d_model, patch_len, stride, dropout):
+        super(TextPatchEmbedding, self).__init__()
+        self.patch_len = patch_len
+        self.stride = stride
+        assert self.patch_len == self.stride, "non-overlap"
+        self.query = nn.Parameter(torch.zeros(text_dim))
+        torch.nn.init.normal_(self.query, std=.02)
+        self.proj = nn.Linear(text_dim, d_model)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, text, n_vars):
+        if text is None:
+            return None
+        remainder = text.shape[1] % self.patch_len
+        if remainder != 0:
+            padding = self.patch_len - remainder
+            text = F.pad(text, (0, 0, 0, padding))
+        patches = text.unfold(dimension=1, size=self.patch_len, step=self.stride)
+        patches = patches.permute(0, 1, 3, 2)
+        attn_logits = torch.einsum('d,bnpd->bnp', self.query, patches)
+        attn_logits = attn_logits / math.sqrt(patches.shape[-1])
+        attn = torch.softmax(attn_logits, dim=-1)
+        pooled = torch.einsum('bnp,bnpd->bnd', attn, patches)
+        pooled = self.dropout(self.proj(pooled))
+        return pooled.unsqueeze(1).repeat(1, n_vars, 1, 1)
+
+
 class CLSHead(nn.Module):
     def __init__(self, d_model, head_dropout=0):
         super().__init__()
@@ -685,6 +716,16 @@ class Model(nn.Module):
         # input processing
         self.patch_embeddings = PatchEmbedding(
             args.d_model, args.patch_len, args.stride, args.stride, args.dropout)
+        self.use_text_modality = getattr(args, 'use_text_modality', False)
+        if self.use_text_modality:
+            self.text_patch_embedding = TextPatchEmbedding(
+                getattr(args, 'text_embedding_dim', 768),
+                args.d_model,
+                args.patch_len,
+                args.stride,
+                args.dropout,
+            )
+            self.text_gate = nn.Parameter(torch.full((1, 1, 1, args.d_model), -4.0))
         self.position_embedding = LearnablePositionalEmbedding(args.d_model)
         self.prompt2forecat = DynamicLinear(128, 128, fixed_in=args.prompt_num)
 
@@ -704,7 +745,7 @@ class Model(nn.Module):
             self.pretrain_head = ForecastHead(
                 args.d_model, args.patch_len, args.stride, args.stride, prefix_token_length=1, head_dropout=args.dropout)
 
-    def tokenize(self, x, mask=None):
+    def tokenize(self, x, mask=None, text=None):
         # Normalization from Non-stationary Transformer
         means = x.mean(1, keepdim=True).detach()
         x = x - means
@@ -725,6 +766,12 @@ class Model(nn.Module):
         else:
             padding = 0
         x, n_vars = self.patch_embeddings(x)
+        if self.use_text_modality and text is not None:
+            text = text.to(device=x.device, dtype=x.dtype)
+            text_tokens = self.text_patch_embedding(text, n_vars)
+            x = torch.reshape(x, (-1, n_vars, x.shape[-2], x.shape[-1]))
+            x = x + torch.sigmoid(self.text_gate) * text_tokens
+            x = torch.reshape(x, (-1, x.shape[-2], x.shape[-1]))
         return x, means, stdev, n_vars, padding
 
     def prepare_prompt(self, x, n_vars, prefix_prompt, task_prompt, task_prompt_num, task_name=None, mask=None):
@@ -787,7 +834,7 @@ class Model(nn.Module):
                       seq_len, attn_mask=attn_mask)
         return x
 
-    def forecast(self, x, x_mark, task_id):
+    def forecast(self, x, x_mark, task_id, text=None):
         dataset_name = self.configs_list[task_id][1]['dataset']
         task_data_name = self.configs_list[task_id][0]
         prefix_prompt = self.prompt_tokens[dataset_name]
@@ -796,7 +843,7 @@ class Model(nn.Module):
         task_seq_num = self.cls_nums[task_data_name][1]
         real_seq_len = self.cls_nums[task_data_name][2]
 
-        x, means, stdev, n_vars, _ = self.tokenize(x)
+        x, means, stdev, n_vars, _ = self.tokenize(x, text=text)
 
         x = self.prepare_prompt(
             x, n_vars, prefix_prompt, task_prompt, task_prompt_num, task_name='forecast')
@@ -858,12 +905,12 @@ class Model(nn.Module):
 
         return x
 
-    def anomaly_detection(self, x, x_mark, task_id):
+    def anomaly_detection(self, x, x_mark, task_id, text=None):
         dataset_name = self.configs_list[task_id][1]['dataset']
         prefix_prompt = self.prompt_tokens[dataset_name]
 
         seq_len = x.shape[1]
-        x, means, stdev, n_vars, padding = self.tokenize(x)
+        x, means, stdev, n_vars, padding = self.tokenize(x, text=text)
 
         x = self.prepare_prompt(x, n_vars, prefix_prompt,
                                 None, None, task_name='anomaly_detection')
@@ -1013,16 +1060,17 @@ class Model(nn.Module):
             return cls_dec_out
 
     def forward(self, x_enc, x_mark_enc, x_dec=None, x_mark_dec=None,
-                mask=None, task_id=None, task_name=None, enable_mask=None):
+                mask=None, task_id=None, task_name=None, enable_mask=None,
+                text_enc=None):
         if task_name == 'long_term_forecast' or task_name == 'short_term_forecast':
-            dec_out = self.forecast(x_enc, x_mark_enc, task_id)
+            dec_out = self.forecast(x_enc, x_mark_enc, task_id, text=text_enc)
             return dec_out  # [B, L, D]
         if task_name == 'imputation':
             dec_out = self.imputation(
                 x_enc, x_mark_enc, mask, task_id)
             return dec_out  # [B, L, D]
         if task_name == 'anomaly_detection':
-            dec_out = self.anomaly_detection(x_enc, x_mark_enc, task_id)
+            dec_out = self.anomaly_detection(x_enc, x_mark_enc, task_id, text=text_enc)
             return dec_out  # [B, L, D]
         if task_name == 'classification':
             dec_out = self.classification(x_enc, x_mark_enc, task_id)
