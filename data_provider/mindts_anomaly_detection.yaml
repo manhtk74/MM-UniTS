@@ -18,7 +18,7 @@ task_dataset:
     test_step: 24
     score_mode: thre
     anomaly_metrics: true
-    select_metric: Aff-F
+    select_metric: F1
 
   Energy:
     task_name: anomaly_detection
@@ -39,7 +39,7 @@ task_dataset:
     test_step: 24
     score_mode: thre
     anomaly_metrics: true
-    select_metric: Aff-F
+    select_metric: F1
 
   Environment:
     task_name: anomaly_detection
@@ -60,7 +60,7 @@ task_dataset:
     test_step: 24
     score_mode: thre
     anomaly_metrics: true
-    select_metric: Aff-F
+    select_metric: F1
 
   KR:
     task_name: anomaly_detection
@@ -81,7 +81,7 @@ task_dataset:
     test_step: 24
     score_mode: thre
     anomaly_metrics: true
-    select_metric: Aff-F
+    select_metric: F1
 
   EWJ:
     task_name: anomaly_detection
@@ -102,7 +102,7 @@ task_dataset:
     test_step: 24
     score_mode: thre
     anomaly_metrics: true
-    select_metric: Aff-F
+    select_metric: F1
 
   MDT:
     task_name: anomaly_detection
@@ -123,4 +123,4 @@ task_dataset:
     test_step: 24
     score_mode: thre
     anomaly_metrics: true
-    select_metric: Aff-F
+    select_metric: F1

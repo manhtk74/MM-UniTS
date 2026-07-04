@@ -335,16 +335,19 @@ class Exp_All_Task(object):
 
     def choose_training_parts(self, prompt_tune=False):
         trainable_count = 0
+        trainable_names = []
         for name, param in self.model.named_parameters():
             if prompt_tune:
                 if 'prompt_token' in name or 'mask_prompt' in name or 'cls_prompt' in name or 'mask_token' in name or 'cls_token' in name or 'category_token' in name:
                     param.requires_grad = True
                     trainable_count += 1
+                    trainable_names.append(name)
                     if not self.compact_log:
                         print("trainable:", name)
                 elif getattr(self.args, 'use_text_modality', False) and 'text_' in name:
                     param.requires_grad = True
                     trainable_count += 1
+                    trainable_names.append(name)
                     if not self.compact_log:
                         print("trainable:", name)
                 else:
@@ -352,10 +355,15 @@ class Exp_All_Task(object):
             else:
                 param.requires_grad = True
                 trainable_count += 1
+                trainable_names.append(name)
 
         if self.compact_log and not getattr(self, '_printed_trainable_summary', False):
             mode = "prompt" if prompt_tune else "full"
             print(f"Trainable mode: {mode} ({trainable_count} parameter tensors)")
+            if prompt_tune:
+                print("Trainable modules:")
+                for name in trainable_names:
+                    print(f"  - {name}")
             self._printed_trainable_summary = True
         if not prompt_tune and not self.compact_log:
             print("all trainable.")
