@@ -551,11 +551,18 @@ class ForecastHead(nn.Module):
         bs, n_vars = x.shape[0], x.shape[1]
         x = x.reshape(-1, x.shape[-2], x.shape[-1])
         x = x.permute(0, 2, 1)
+        # Compute fold-compatible output size: must satisfy
+        # fold_len = stride * (num_blocks - 1) + kernel_size
+        num_blocks = x.shape[2]  # token_len (number of patches)
+        fold_len = self.stride * (num_blocks - 1) + self.patch_len
         x = torch.nn.functional.fold(x, output_size=(
-            pred_len, 1), kernel_size=(self.patch_len, 1), stride=(self.stride, 1))
+            fold_len, 1), kernel_size=(self.patch_len, 1), stride=(self.stride, 1))
         x = x.squeeze(dim=-1)
         x = x.reshape(bs, n_vars, -1)
         x = x.permute(0, 2, 1)
+        # Truncate to the requested pred_len (fold_len may be larger)
+        if x.shape[1] > pred_len:
+            x = x[:, :pred_len, :]
         return x
 
 
@@ -605,10 +612,10 @@ class Model(nn.Module):
                 input_pad = args.stride * \
                     (input_token_len - 1) + args.patch_len - \
                     configs_list[i][1]['seq_len']
-                pred_token_len = calculate_unfold_output_length(
-                    configs_list[i][1]['pred_len']-input_pad, args.stride, args.patch_len)
-                real_len = configs_list[i][1]['seq_len'] + \
-                    configs_list[i][1]['pred_len']
+                effective_pred = configs_list[i][1]['pred_len'] - input_pad
+                pred_token_len = max(1, math.ceil(effective_pred / args.patch_len))
+                total_token_len = input_token_len + pred_token_len
+                real_len = args.stride * (total_token_len - 1) + args.patch_len
                 self.cls_nums[task_data_name] = [pred_token_len,
                                                  configs_list[i][1]['pred_len'], real_len]
 
