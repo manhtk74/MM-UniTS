@@ -1,5 +1,6 @@
 from data_provider.data_loader import Dataset_ETT_hour, Dataset_ETT_minute, Dataset_Custom, PSMSegLoader, \
-    MSLSegLoader, SMAPSegLoader, SMDSegLoader, SWATSegLoader, MindTSSegLoader, TimeMMDForecastDataset, UEAloader, GLUONTSDataset
+    MSLSegLoader, SMAPSegLoader, SMDSegLoader, SMDAnomalyDemoLoader, SMDForecastDemoLoader, \
+    SWATSegLoader, MindTSSegLoader, TimeMMDForecastDataset, UEAloader, GLUONTSDataset
 from data_provider.uea import collate_fn
 import torch
 from torch.utils.data import DataLoader, Subset
@@ -16,6 +17,8 @@ data_dict = {
     'MSL': MSLSegLoader,
     'SMAP': SMAPSegLoader,
     'SMD': SMDSegLoader,
+    'SMD_Demo_Anomaly': SMDAnomalyDemoLoader,
+    'SMD_Demo_Forecast': SMDForecastDemoLoader,
     'SWAT': SWATSegLoader,
     'MindTS': MindTSSegLoader,
     'TimeMMD': TimeMMDForecastDataset,
@@ -135,7 +138,7 @@ def data_provider(args, config, flag, ddp=False):  # args,
             drop_last = False
         dataset_kwargs = {
             'root_path': config['root_path'],
-            'data_path': config['data_path'],
+            'data_path': config.get('data_path'),
             'flag': flag,
             'size': [config['seq_len'], config['label_len'], config['pred_len']],
             'features': config['features'],
@@ -144,6 +147,8 @@ def data_provider(args, config, flag, ddp=False):  # args,
             'freq': freq,
             'seasonal_patterns': config['seasonal_patterns'] if config['data'] == 'm4' else None,
         }
+        if config['data'] == 'SMD_Demo_Forecast':
+            dataset_kwargs['step'] = config.get('step', 24)
         if config['data'] == 'TimeMMD':
             dataset_kwargs['use_text_modality'] = getattr(args, 'use_text_modality', False)
             dataset_kwargs['text_embedding_path'] = config.get('text_embedding_path')

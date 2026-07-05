@@ -1,0 +1,33 @@
+task_dataset:
+  AD_SMD:
+    task_name: anomaly_detection
+    dataset_name: SMD
+    dataset: SMD
+    data: SMD_Demo_Anomaly
+    root_path: dataset/SMD
+    seq_len: 96
+    label_len: 0
+    pred_len: 0
+    features: M
+    embed: timeF
+    enc_in: 38
+    dec_in: 38
+    c_out: 38
+    step: 100
+    test_step: 96
+
+  LTF_SMD_p24:
+    task_name: long_term_forecast
+    dataset_name: SMD
+    dataset: SMD
+    data: SMD_Demo_Forecast
+    root_path: dataset/SMD
+    seq_len: 96
+    label_len: 48
+    pred_len: 24
+    features: M
+    embed: timeF
+    enc_in: 38
+    dec_in: 38
+    c_out: 38
+    step: 24

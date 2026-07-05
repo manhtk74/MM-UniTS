@@ -1,4 +1,6 @@
 from pathlib import Path
+from bisect import bisect_right
+import json
 try:
     from gluonts.dataset.jsonl import JsonLinesWriter
     from gluonts.dataset.repository import get_dataset
@@ -596,6 +598,157 @@ class SMDSegLoader(Dataset):
             return np.float32(self.test[
                               index // self.step * self.win_size:index // self.step * self.win_size + self.win_size]), np.float32(
                 self.test_labels[index // self.step * self.win_size:index // self.step * self.win_size + self.win_size])
+
+
+class _SMDWindowIndex:
+    """Compact global index over windows that never cross machine boundaries."""
+
+    def _set_window_counts(self, counts):
+        self.window_counts = [int(max(0, count)) for count in counts]
+        self.window_ends = np.cumsum(self.window_counts, dtype=np.int64).tolist()
+
+    def _locate_window(self, index):
+        total = self.window_ends[-1] if self.window_ends else 0
+        if index < 0:
+            index += total
+        if index < 0 or index >= total:
+            raise IndexError(index)
+        machine_index = bisect_right(self.window_ends, index)
+        previous_end = 0 if machine_index == 0 else self.window_ends[machine_index - 1]
+        return machine_index, index - previous_end
+
+    def __len__(self):
+        return self.window_ends[-1] if self.window_ends else 0
+
+
+def _load_smd_processed(root_path):
+    root = Path(root_path)
+    manifest_path = root / "manifest.json"
+    scaler_path = root / "scaler.npz"
+    if not manifest_path.exists():
+        raise FileNotFoundError(
+            f"Missing {manifest_path}. Run scripts/smd/prepare_smd.py first."
+        )
+    if not scaler_path.exists():
+        raise FileNotFoundError(f"Missing SMD scaler: {scaler_path}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    with np.load(scaler_path) as scaler_values:
+        mean = scaler_values["mean"].astype(np.float32)
+        scale = scaler_values["scale"].astype(np.float32)
+    machine_ids = list(manifest["machines"].keys())
+    return root, manifest, machine_ids, mean, scale
+
+
+class SMDAnomalyDemoLoader(_SMDWindowIndex, Dataset):
+    """Boundary-aware SMD reconstruction windows for the demo configuration."""
+
+    def __init__(self, root_path, win_size, step=100, flag="train"):
+        if flag not in {"train", "val", "test"}:
+            raise ValueError(f"Unsupported SMD anomaly split: {flag}")
+        self.flag = flag
+        self.win_size = int(win_size)
+        self.step = int(step)
+        self.root, self.manifest, self.machine_ids, self.mean, self.scale_values = \
+            _load_smd_processed(root_path)
+        self.series = []
+        self.labels = []
+
+        for machine_id in self.machine_ids:
+            with np.load(self.root / "machines" / f"{machine_id}.npz") as values:
+                train = values["train"].astype(np.float32)
+                test = values["test"].astype(np.float32)
+                test_label = values["label"].astype(np.float32)
+            if flag == "test":
+                series = test
+                labels = test_label
+            elif flag == "val":
+                split = int(len(train) * 0.8)
+                series = train[split:]
+                labels = np.zeros(len(series), dtype=np.float32)
+            else:
+                series = train
+                labels = np.zeros(len(series), dtype=np.float32)
+            self.series.append(((series - self.mean) / self.scale_values).astype(np.float32))
+            self.labels.append(labels)
+
+        counts = [
+            (len(series) - self.win_size) // self.step + 1
+            for series in self.series
+        ]
+        self._set_window_counts(counts)
+
+    def __getitem__(self, index):
+        machine_index, local_index = self._locate_window(index)
+        start = local_index * self.step
+        end = start + self.win_size
+        return (
+            np.float32(self.series[machine_index][start:end]),
+            np.float32(self.labels[machine_index][start:end]),
+        )
+
+    def inverse_transform(self, data):
+        values = np.asarray(data)
+        return values * self.scale_values + self.mean
+
+
+class SMDForecastDemoLoader(_SMDWindowIndex, Dataset):
+    """Boundary-aware multivariate SMD forecasting windows."""
+
+    def __init__(self, root_path, flag="train", size=None, features="M",
+                 data_path=None, target="OT", scale=True, timeenc=0, freq="t",
+                 seasonal_patterns=None, step=24):
+        if flag not in {"train", "val", "test"}:
+            raise ValueError(f"Unsupported SMD forecast split: {flag}")
+        if size is None:
+            size = (96, 48, 24)
+        self.seq_len, self.label_len, self.pred_len = map(int, size)
+        self.flag = flag
+        self.features = features
+        self.scale = bool(scale)
+        self.step = int(step)
+        self.root, self.manifest, self.machine_ids, self.mean, self.scale_values = \
+            _load_smd_processed(root_path)
+        self.series = []
+
+        for machine_id in self.machine_ids:
+            with np.load(self.root / "machines" / f"{machine_id}.npz") as values:
+                train = values["train"].astype(np.float32)
+                test = values["test"].astype(np.float32)
+            split = int(len(train) * 0.8)
+            if flag == "train":
+                series = train[:split]
+            elif flag == "val":
+                series = train[max(0, split - self.seq_len):]
+            else:
+                series = test
+            if self.scale:
+                series = (series - self.mean) / self.scale_values
+            self.series.append(series.astype(np.float32, copy=False))
+
+        counts = [
+            (len(series) - self.seq_len - self.pred_len) // self.step + 1
+            for series in self.series
+        ]
+        self._set_window_counts(counts)
+
+    def __getitem__(self, index):
+        machine_index, local_index = self._locate_window(index)
+        start = local_index * self.step
+        input_end = start + self.seq_len
+        target_start = input_end - self.label_len
+        target_end = input_end + self.pred_len
+        series = self.series[machine_index]
+        seq_x = np.float32(series[start:input_end])
+        seq_y = np.float32(series[target_start:target_end])
+        # UniTS currently ignores marks for forecasting, but the provider
+        # contract requires both arrays.
+        seq_x_mark = np.zeros((len(seq_x), 4), dtype=np.float32)
+        seq_y_mark = np.zeros((len(seq_y), 4), dtype=np.float32)
+        return seq_x, seq_y, seq_x_mark, seq_y_mark
+
+    def inverse_transform(self, data):
+        values = np.asarray(data)
+        return values * self.scale_values + self.mean
 
 
 class SWATSegLoader(Dataset):

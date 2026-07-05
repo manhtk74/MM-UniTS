@@ -1,0 +1,1 @@
+"""Offline SMD monitoring demo."""
